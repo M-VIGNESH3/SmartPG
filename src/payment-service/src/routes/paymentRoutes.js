@@ -4,17 +4,28 @@ const {
   createPayment,
   getPayments,
   getPaymentsByTenant,
+  getPendingPayments,
+  getPaymentSummary,
   updatePaymentStatus,
-  getPaymentSummary
+  deletePayment,
+  getPaymentsByMonth,
+  getOverduePayments
 } = require('../controllers/paymentController');
-const { protect, admin } = require('../middleware/auth');
+const { verifyToken, isAdmin } = require('../middleware/auth');
 
 router.route('/')
-  .post(protect, admin, createPayment)
-  .get(protect, admin, getPayments);
+  .post(verifyToken, isAdmin, createPayment)
+  .get(verifyToken, isAdmin, getPayments);
 
-router.get('/summary', protect, admin, getPaymentSummary);
-router.get('/tenant/:id', protect, getPaymentsByTenant);
-router.put('/:id/status', protect, admin, updatePaymentStatus);
+router.get('/pending', verifyToken, isAdmin, getPendingPayments);
+router.get('/overdue', verifyToken, isAdmin, getOverduePayments);
+router.get('/summary', verifyToken, isAdmin, getPaymentSummary);
+router.get('/month/:month/:year', verifyToken, isAdmin, getPaymentsByMonth);
+router.get('/tenant/:id', verifyToken, getPaymentsByTenant);
+
+router.route('/:id')
+  .delete(verifyToken, isAdmin, deletePayment);
+
+router.put('/:id/status', verifyToken, isAdmin, updatePaymentStatus);
 
 module.exports = router;

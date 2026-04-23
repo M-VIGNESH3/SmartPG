@@ -6,19 +6,26 @@ const {
   getTenants,
   getTenantById,
   updateTenant,
-  deleteTenant
+  deleteTenant,
+  updateTenantStatus,
+  updateTenantPassword,
+  getTenantSummary
 } = require('../controllers/tenantController');
-const { protect, admin } = require('../middleware/auth');
+const { verifyToken, isAdmin, isSelf } = require('../middleware/auth');
 
 router.post('/auth/register', registerTenant);
 router.post('/auth/login', loginTenant);
 
 router.route('/tenants')
-  .get(protect, admin, getTenants);
+  .get(verifyToken, isAdmin, getTenants);
 
 router.route('/tenants/:id')
-  .get(protect, getTenantById)
-  .put(protect, updateTenant)
-  .delete(protect, admin, deleteTenant);
+  .get(verifyToken, isSelf, getTenantById)
+  .put(verifyToken, isSelf, updateTenant)
+  .delete(verifyToken, isAdmin, deleteTenant);
+
+router.put('/tenants/:id/status', verifyToken, isAdmin, updateTenantStatus);
+router.put('/tenants/:id/password', verifyToken, isSelf, updateTenantPassword);
+router.get('/tenants/:id/summary', verifyToken, isAdmin, getTenantSummary);
 
 module.exports = router;

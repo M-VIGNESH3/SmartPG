@@ -2,24 +2,28 @@ const express = require('express');
 const router = express.Router();
 const {
   createNotification,
-  createAnnouncement,
-  getNotifications,
+  getNotificationsByTenant,
   getUnreadCount,
   markAsRead,
-  markAllAsRead
+  markAllAsRead,
+  announce,
+  deleteNotification,
+  getAllNotifications,
+  deleteByTenant
 } = require('../controllers/notificationController');
-const { protect, admin } = require('../middleware/auth');
+const { verifyToken, isAdmin } = require('../middleware/auth');
 
-// Internal / cross-service route (Not strictly protected for simplicity in this demo, but should ideally use internal auth or network policies)
-router.post('/', createNotification);
+router.post('/', verifyToken, isAdmin, createNotification);
+router.post('/announce', verifyToken, isAdmin, announce);
 
-// Admin routes
-router.post('/announce', protect, admin, createAnnouncement);
+router.get('/all', verifyToken, isAdmin, getAllNotifications);
+router.get('/:tenantId', verifyToken, getNotificationsByTenant);
+router.get('/count/:tenantId', verifyToken, getUnreadCount);
 
-// Tenant routes
-router.get('/:tenantId', protect, getNotifications);
-router.get('/count/:tenantId', protect, getUnreadCount);
-router.put('/:id/read', protect, markAsRead);
-router.put('/read-all/:tenantId', protect, markAllAsRead);
+router.put('/:id/read', verifyToken, markAsRead);
+router.put('/read-all/:tenantId', verifyToken, markAllAsRead);
+
+router.delete('/:id', verifyToken, isAdmin, deleteNotification);
+router.delete('/tenant/:tenantId', verifyToken, isAdmin, deleteByTenant);
 
 module.exports = router;

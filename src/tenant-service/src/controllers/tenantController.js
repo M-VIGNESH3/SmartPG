@@ -124,3 +124,65 @@ exports.deleteTenant = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.updateTenantStatus = async (req, res) => {
+  try {
+    const tenant = await Tenant.findById(req.params.id);
+    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+    tenant.isActive = req.body.status === 'active';
+    await tenant.save();
+    res.json({ message: `Tenant status updated to ${req.body.status}` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.updateTenantPassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const tenant = await Tenant.findById(req.params.id);
+    
+    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+    if (!(await tenant.matchPassword(currentPassword))) {
+      return res.status(400).json({ message: 'Invalid current password' });
+    }
+    
+    tenant.password = newPassword;
+    await tenant.save();
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getTenantSummary = async (req, res) => {
+  try {
+    const tenant = await Tenant.findById(req.params.id).select('-password').populate('roomId');
+    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+
+    const axios = require('axios');
+    const authHeader = { headers: { Authorization: req.headers.authorization } };
+    
+    let paymentCount = 0;
+    let complaintCount = 0;
+    
+    try {
+      const pRes = await axios.get(`http://payment-service:4002/api/payments/tenant/${req.params.id}`, authHeader);
+      paymentCount = pRes.data.length;
+    } catch(e) {}
+
+    try {
+      const cRes = await axios.get(`http://complaint-service:4004/api/complaints/tenant/${req.params.id}`, authHeader);
+      complaintCount = cRes.data.length;
+    } catch(e) {}
+
+    res.json({
+      profile: tenant,
+      paymentCount,
+      complaintCount
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+

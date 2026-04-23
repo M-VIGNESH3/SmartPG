@@ -3,12 +3,21 @@ const router = express.Router();
 const {
   getRooms,
   getAvailableRooms,
-  allocateRoom
+  allocateRoom,
+  createRoom,
+  updateRoom,
+  releaseRoom
 } = require('../controllers/roomController');
-const { protect, admin } = require('../middleware/auth');
+const { verifyToken, isAdmin } = require('../middleware/auth');
 
-router.get('/', protect, getRooms);
-router.get('/available', protect, getAvailableRooms);
-router.post('/allocate', protect, admin, allocateRoom);
+router.route('/')
+  .get(verifyToken, isAdmin, getRooms)
+  .post(verifyToken, isAdmin, createRoom);
+
+router.get('/available', verifyToken, isAdmin, getAvailableRooms);
+router.post('/allocate', verifyToken, isAdmin, allocateRoom);
+
+router.put('/:id', verifyToken, isAdmin, updateRoom);
+router.put('/:id/release', verifyToken, isAdmin, releaseRoom);
 
 module.exports = router;

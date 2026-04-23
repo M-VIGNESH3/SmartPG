@@ -1,8 +1,6 @@
 const Room = require('../models/Room');
 const Tenant = require('../models/Tenant');
 
-// @desc Get all rooms
-// @route GET /api/rooms
 exports.getRooms = async (req, res) => {
   try {
     const rooms = await Room.find({}).populate('occupants', 'name email');
@@ -12,19 +10,34 @@ exports.getRooms = async (req, res) => {
   }
 };
 
-// @desc Get available rooms
-// @route GET /api/rooms/available
 exports.getAvailableRooms = async (req, res) => {
   try {
-    const rooms = await Room.find({ isAvailable: true });
+    const rooms = await Room.find({ status: 'Available' });
     res.json(rooms);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc Allocate room to tenant
-// @route POST /api/rooms/allocate
+exports.createRoom = async (req, res) => {
+  try {
+    const room = await Room.create(req.body);
+    res.status(201).json(room);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.updateRoom = async (req, res) => {
+  try {
+    const room = await Room.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+    res.json(room);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 exports.allocateRoom = async (req, res) => {
   try {
     const { tenantId, roomId } = req.body;
@@ -32,7 +45,8 @@ exports.allocateRoom = async (req, res) => {
     const room = await Room.findById(roomId);
     if (!room) return res.status(404).json({ message: 'Room not found' });
     
-    if (room.occupants.length >= room.capacity) {
+    const capacity = room.type === 'single' ? 1 : room.type === 'double' ? 2 : 3;
+    if (room.occupants.length >= capacity && !room.occupants.includes(tenantId)) {
       return res.status(400).json({ message: 'Room is at full capacity' });
     }
 
@@ -40,19 +54,22 @@ exports.allocateRoom = async (req, res) => {
     if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
 
     // Remove tenant from old room if any
-    if (tenant.roomId) {
+    if (tenant.roomId && tenant.roomId.toString() !== roomId) {
       const oldRoom = await Room.findById(tenant.roomId);
       if (oldRoom) {
         oldRoom.occupants = oldRoom.occupants.filter(id => id.toString() !== tenantId);
-        oldRoom.isAvailable = true;
+        oldRoom.status = 'Available';
         await oldRoom.save();
       }
     }
 
     // Add to new room
-    room.occupants.push(tenantId);
-    if (room.occupants.length === room.capacity) {
-      room.isAvailable = false;
+    if (!room.occupants.includes(tenantId)) {
+      room.occupants.push(tenantId);
+    }
+    
+    if (room.occupants.length >= capacity) {
+      room.status = 'Occupied';
     }
     await room.save();
 
@@ -60,6 +77,28 @@ exports.allocateRoom = async (req, res) => {
     await tenant.save();
 
     res.json({ message: 'Room allocated successfully', room });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.releaseRoom = async (req, res) => {
+  try {
+    const { tenantId } = req.body;
+    const room = await Room.findById(req.params.id);
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+
+    room.occupants = room.occupants.filter(id => id.toString() !== tenantId);
+    room.status = 'Available';
+    await room.save();
+
+    const tenant = await Tenant.findById(tenantId);
+    if (tenant) {
+      tenant.roomId = null;
+      await tenant.save();
+    }
+
+    res.json({ message: 'Room released successfully', room });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

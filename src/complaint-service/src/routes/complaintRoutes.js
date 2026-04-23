@@ -6,20 +6,28 @@ const {
   getComplaintsByTenant,
   getComplaintById,
   updateComplaintStatus,
-  deleteComplaint
+  updateComplaint,
+  deleteComplaint,
+  getComplaintStats,
+  updateComplaintPriority,
+  updateComplaintNote
 } = require('../controllers/complaintController');
-const { protect, admin } = require('../middleware/auth');
+const { verifyToken, isAdmin } = require('../middleware/auth');
 
 router.route('/')
-  .post(protect, createComplaint)
-  .get(protect, admin, getComplaints);
+  .post(verifyToken, createComplaint)
+  .get(verifyToken, isAdmin, getComplaints);
 
-router.get('/tenant/:id', protect, getComplaintsByTenant);
+router.get('/stats', verifyToken, isAdmin, getComplaintStats);
+router.get('/tenant/:id', verifyToken, getComplaintsByTenant);
 
 router.route('/:id')
-  .get(protect, getComplaintById)
-  .delete(protect, admin, deleteComplaint);
+  .get(verifyToken, getComplaintById)
+  .put(verifyToken, updateComplaint)
+  .delete(verifyToken, deleteComplaint);
 
-router.put('/:id/status', protect, admin, updateComplaintStatus);
+router.put('/:id/status', verifyToken, isAdmin, updateComplaintStatus);
+router.put('/:id/priority', verifyToken, isAdmin, updateComplaintPriority);
+router.put('/:id/note', verifyToken, isAdmin, updateComplaintNote);
 
 module.exports = router;
