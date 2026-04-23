@@ -21,7 +21,23 @@ app.use(morgan('dev'));
 
 // Database Connection
 mongoose.connect(MONGO_URI)
-  .then(() => console.log('Connected to MongoDB - Tenant Service'))
+  .then(async () => {
+    console.log('Connected to MongoDB - Tenant Service');
+    
+    // Seed Admin User
+    const Tenant = require('./models/Tenant');
+    const adminExists = await Tenant.findOne({ email: 'admin@smartpg.com' });
+    if (!adminExists) {
+      await Tenant.create({
+        name: 'Admin User',
+        email: 'admin@smartpg.com',
+        password: 'admin123',
+        phone: '1234567890',
+        role: 'admin'
+      });
+      console.log('Default Admin user seeded: admin@smartpg.com / admin123');
+    }
+  })
   .catch((err) => console.error('MongoDB connection error:', err));
 
 // Health & Ready endpoints
