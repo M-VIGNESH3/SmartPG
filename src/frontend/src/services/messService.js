@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_MESS_SERVICE_URL || 'http://localhost:4003';
+const API_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_MESS_SERVICE_URL || 'http://localhost:4003');
 
 const getAuthHeader = () => {
   const user = JSON.parse(localStorage.getItem('user'));

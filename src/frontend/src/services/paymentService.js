@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_PAYMENT_SERVICE_URL || 'http://localhost:4002';
+const API_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_PAYMENT_SERVICE_URL || 'http://localhost:4002');
 
 const getAuthHeader = () => {
   const user = JSON.parse(localStorage.getItem('user'));
