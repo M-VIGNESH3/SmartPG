@@ -1,24 +1,89 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 
-const tenantSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  phone: { type: String, required: true },
-  role: { type: String, enum: ['tenant', 'admin'], default: 'tenant' },
-  roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'Room', default: null },
-  isActive: { type: Boolean, default: true }
-}, { timestamps: true });
+const tenantSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, 'Name is required'],
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: [true, 'Email is required'],
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: {
+      type: String,
+      required: [true, 'Password is required'],
+      minlength: 6,
+    },
+    phone: {
+      type: String,
+      required: [true, 'Phone is required'],
+      trim: true,
+    },
+    role: {
+      type: String,
+      enum: ['admin', 'tenant'],
+      default: 'tenant',
+    },
+    roomNumber: {
+      type: String,
+      default: null,
+    },
+    roomId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Room',
+      default: null,
+    },
+    emergencyContact: {
+      type: String,
+      trim: true,
+    },
+    idProofType: {
+      type: String,
+      enum: ['Aadhar', 'PAN', 'Passport', 'DrivingLicense'],
+    },
+    status: {
+      type: String,
+      enum: ['active', 'inactive', 'pending', 'rejected'],
+      default: 'pending',
+    },
+    registrationType: {
+      type: String,
+      enum: ['admin-created', 'self-registered'],
+      default: 'self-registered',
+    },
+    tempPassword: {
+      type: Boolean,
+      default: false,
+    },
+    rejectionReason: {
+      type: String,
+      default: null,
+    },
+    joinDate: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
 
-tenantSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
-});
+// Remove password from JSON output
+tenantSchema.methods.toJSON = function () {
+  const obj = this.toObject();
+  delete obj.password;
+  return obj;
+};
 
-tenantSchema.methods.matchPassword = async function(enteredPassword) {
+// Keep matchPassword for backward compatibility
+tenantSchema.methods.matchPassword = async function (enteredPassword) {
+  const bcrypt = require('bcryptjs');
   return await bcrypt.compare(enteredPassword, this.password);
 };
 

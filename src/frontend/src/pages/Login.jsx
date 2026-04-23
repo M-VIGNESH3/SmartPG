@@ -1,25 +1,35 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    if (!email || !password) {
+      setError({ type: 'validation', message: 'Please enter email and password' });
+      return;
+    }
+
+    setError(null);
     setLoading(true);
     try {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      const response = err.response?.data;
+      if (response?.code) {
+        setError({ type: response.code, message: response.message, reason: response.reason });
+      } else {
+        setError({ type: 'error', message: response?.message || 'Login failed. Please try again.' });
+      }
     } finally {
       setLoading(false);
     }
@@ -28,7 +38,40 @@ const Login = () => {
   const fillDemo = (demoEmail, demoPass) => {
     setEmail(demoEmail);
     setPassword(demoPass);
+    setError(null);
   };
+
+  // Determine error style based on type
+  const getErrorStyle = () => {
+    if (!error) return null;
+    if (error.type === 'ACCOUNT_PENDING') {
+      return {
+        bg: 'bg-[#fff8e1]',
+        border: 'border-[#ffe082]',
+        text: 'text-[#e65100]',
+        icon: 'pending_actions',
+        iconColor: 'text-[#f57f17]',
+      };
+    }
+    if (error.type === 'ACCOUNT_REJECTED') {
+      return {
+        bg: 'bg-error-container',
+        border: 'border-[#ef9a9a]',
+        text: 'text-on-error-container',
+        icon: 'cancel',
+        iconColor: 'text-error',
+      };
+    }
+    return {
+      bg: 'bg-error-container',
+      border: 'border-[#ef9a9a]',
+      text: 'text-on-error-container',
+      icon: 'error',
+      iconColor: 'text-error',
+    };
+  };
+
+  const errorStyle = getErrorStyle();
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -44,8 +87,32 @@ const Login = () => {
 
         {/* Error message */}
         {error && (
-          <div className="mb-4 p-3 bg-error-container text-on-error-container rounded-md text-sm">
-            {error}
+          <div className={`mb-5 p-4 ${errorStyle.bg} border ${errorStyle.border} rounded-lg flex items-start gap-3`}>
+            <span
+              className={`material-symbols-outlined ${errorStyle.iconColor} flex-shrink-0`}
+              style={{ fontSize: '18px' }}
+            >
+              {errorStyle.icon}
+            </span>
+            <div>
+              <p className={`text-[14px] font-medium ${errorStyle.text}`}>
+                {error.message}
+              </p>
+              {error.type === 'ACCOUNT_PENDING' && (
+                <p className="text-[12px] text-[#f57f17] mt-1">
+                  Your account is under review. Contact your PG admin for faster approval.
+                </p>
+              )}
+              {error.type === 'ACCOUNT_REJECTED' && (
+                <p className="text-[12px] text-on-error-container mt-1">
+                  You can{' '}
+                  <Link to="/register" className="underline font-semibold">
+                    register again
+                  </Link>{' '}
+                  or contact admin directly.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -56,7 +123,7 @@ const Login = () => {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { setEmail(e.target.value); if (error) setError(null); }}
               placeholder="Enter your email"
               required
               className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -69,7 +136,7 @@ const Login = () => {
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); if (error) setError(null); }}
                 placeholder="Enter your password"
                 required
                 className="w-full px-3 py-2 pr-10 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -87,9 +154,19 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-secondary-container hover:bg-secondary text-on-primary font-label-md py-3 rounded-md transition-colors mt-6 disabled:opacity-50"
+            className="w-full bg-secondary-container hover:bg-secondary text-on-primary font-label-md py-3 rounded-md transition-colors mt-6 disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Signing in...
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>login</span>
+                Sign In
+              </>
+            )}
           </button>
         </form>
 
@@ -116,6 +193,24 @@ const Login = () => {
             </div>
           </div>
         </div>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3 mt-6">
+          <hr className="flex-1 border-outline-variant" />
+          <span className="text-[12px] text-on-surface-variant">OR</span>
+          <hr className="flex-1 border-outline-variant" />
+        </div>
+
+        {/* Register Link */}
+        <p className="text-center mt-4 text-body-md text-on-surface-variant">
+          New tenant?{' '}
+          <Link
+            to="/register"
+            className="text-secondary-container font-semibold hover:underline"
+          >
+            Request Access →
+          </Link>
+        </p>
       </div>
     </div>
   );

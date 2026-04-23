@@ -12,6 +12,7 @@ const statusStyles = {
   overdue: 'bg-error-container text-on-error-container',
   open: 'bg-error-container text-on-error-container',
   occupied: 'bg-error-container text-on-error-container',
+  rejected: 'bg-error-container text-on-error-container',
   closed: 'bg-surface-variant text-on-surface-variant',
 };
 

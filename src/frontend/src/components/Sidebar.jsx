@@ -1,10 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { tenantService } from '../services/tenantService';
 
 const Sidebar = () => {
   const { user, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // Poll pending count for admins
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const fetchPending = async () => {
+      try {
+        const res = await tenantService.getPendingTenants();
+        setPendingCount(res.count || 0);
+      } catch {
+        // silent fail
+      }
+    };
+    fetchPending();
+    const interval = setInterval(fetchPending, 60000);
+    return () => clearInterval(interval);
+  }, [isAdmin]);
 
   const handleLogout = () => {
     logout();
@@ -13,7 +32,7 @@ const Sidebar = () => {
 
   const adminNavItems = [
     { name: 'Dashboard', icon: 'dashboard', path: '/dashboard' },
-    { name: 'Tenants', icon: 'group', path: '/tenants' },
+    { name: 'Tenants', icon: 'group', path: '/tenants', showBadge: true },
     { name: 'Rooms', icon: 'bed', path: '/rooms' },
     { name: 'Payments', icon: 'payments', path: '/payments' },
     { name: 'Mess Menu', icon: 'restaurant', path: '/mess' },
@@ -71,13 +90,18 @@ const Sidebar = () => {
           >
             {({ isActive }) => (
               <>
-                <span 
-                  className="material-symbols-outlined" 
+                <span
+                  className="material-symbols-outlined"
                   style={isActive ? { fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24" } : {}}
                 >
                   {item.icon}
                 </span>
                 {item.name}
+                {item.showBadge && pendingCount > 0 && (
+                  <span className="ml-auto bg-[#f57f17] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                    {pendingCount > 9 ? '9+' : pendingCount}
+                  </span>
+                )}
               </>
             )}
           </NavLink>

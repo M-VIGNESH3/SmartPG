@@ -4,6 +4,7 @@ import { ToastProvider } from './components/common/Toast';
 
 // Pages
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Payments from './pages/Payments';
@@ -27,8 +28,10 @@ function App() {
     <ToastProvider>
       <Router>
         <Routes>
+          {/* PUBLIC routes */}
           <Route path="/login" element={<Login />} />
-          
+          <Route path="/register" element={<Register />} />
+
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
           {/* Protected Routes (Admin or Tenant) */}
