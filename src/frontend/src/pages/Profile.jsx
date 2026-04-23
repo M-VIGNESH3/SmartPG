@@ -1,250 +1,155 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import LoadingSpinner from '../components/common/LoadingSpinner';
-import { toast } from 'react-toastify';
-import { FiUser, FiMail, FiPhone, FiLock, FiHome } from 'react-icons/fi';
+import Badge from '../components/common/Badge';
+import FormInput from '../components/common/FormInput';
+import { tenantService } from '../services/tenantService';
+import { paymentService } from '../services/paymentService';
+import { complaintService } from '../services/complaintService';
 
 const Profile = () => {
-  const { user, token, updateUser } = useAuth();
-  const [profile, setProfile] = useState(null);
+  const { user, updateUser } = useAuth();
+  const [form, setForm] = useState({ name: '', email: '', phone: '', emergencyContact: '' });
+  const [passwordForm, setPasswordForm] = useState({ current: '', newPass: '', confirm: '' });
+  const [room, setRoom] = useState(null);
+  const [paymentCount, setPaymentCount] = useState(0);
+  const [complaintCount, setComplaintCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({ name: '', phone: '', emergencyContact: '', address: '' });
-  const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-
-  const API_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_TENANT_SERVICE_URL || 'http://localhost:4001');
-  const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await axios.get(`${API_URL}/api/tenants/${user.id}`, { headers });
-        setProfile(res.data);
-        setFormData({
-          name: res.data.name || '',
-          phone: res.data.phone || '',
-          emergencyContact: res.data.emergencyContact || '',
-          address: res.data.address || ''
-        });
-      } catch (error) {
-        toast.error('Failed to load profile');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProfile();
-  }, [user.id, token]);
-
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await axios.put(`${API_URL}/api/tenants/${user.id}`, formData, { headers });
-      setProfile(res.data);
-      updateUser({ name: res.data.name });
-      setIsEditing(false);
-      toast.success('Profile updated successfully');
-    } catch (error) {
-      toast.error('Failed to update profile');
+    if (user) {
+      setForm({ name: user.name || '', email: user.email || '', phone: user.phone || '', emergencyContact: user.emergencyContact || '' });
     }
+    fetchData();
+  }, [user]);
+
+  const fetchData = async () => {
+    try {
+      const [rooms, payments, complaints] = await Promise.all([
+        tenantService.getRooms().catch(() => []),
+        paymentService.getPaymentsByTenant(user?.id).catch(() => []),
+        complaintService.getComplaintsByTenant(user?.id).catch(() => []),
+      ]);
+      const roomList = Array.isArray(rooms) ? rooms : [];
+      const myRoom = roomList.find(r => r.tenantId === user?.id || r.tenant === user?.id);
+      setRoom(myRoom || null);
+      setPaymentCount(Array.isArray(payments) ? payments.length : 0);
+      setComplaintCount(Array.isArray(complaints) ? complaints.length : 0);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
-  const handleUpdatePassword = async (e) => {
-    e.preventDefault();
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      return toast.error('Passwords do not match');
-    }
-    if (passwordData.newPassword.length < 6) {
-      return toast.error('Password must be at least 6 characters long');
-    }
-    try {
-      await axios.put(`${API_URL}/api/tenants/${user.id}/password`, {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword
-      }, { headers });
-      toast.success('Password updated successfully');
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update password');
-    }
+  const getInitials = (name) => name ? name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() : 'T';
+
+  const getPasswordStrength = (pass) => {
+    if (!pass) return 0;
+    let s = 0;
+    if (pass.length >= 8) s++;
+    if (/[A-Z]/.test(pass)) s++;
+    if (/[0-9]/.test(pass)) s++;
+    if (/[^A-Za-z0-9]/.test(pass)) s++;
+    return s;
   };
 
-  if (loading) return <LoadingSpinner />;
+  const strength = getPasswordStrength(passwordForm.newPass);
+  const strengthColor = strength <= 1 ? 'bg-error' : strength <= 2 ? 'bg-[#f57f17]' : 'bg-green-500';
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary-container"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
+    <div>
+      {/* Page Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-h1 font-h1 text-on-background">My Profile</h2>
+          <p className="text-body-md text-on-surface-variant mt-1">Manage your personal information</p>
+        </div>
       </div>
 
+      {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - User Info Card */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden text-center p-6">
-            <div className="h-24 w-24 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-4xl font-bold mx-auto mb-4 border-4 border-white shadow-lg">
-              {profile?.name.charAt(0)}
+        {/* Left Column (1/3) */}
+        <div>
+          <div className="bg-surface-container-lowest rounded-lg border border-outline-variant p-6 text-center shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)]">
+            {/* Avatar */}
+            <div className="w-20 h-20 rounded-full mx-auto bg-primary-container flex items-center justify-center text-h1 font-h1 text-on-primary-container">
+              {getInitials(user?.name)}
             </div>
-            <h2 className="text-xl font-bold text-gray-900">{profile?.name}</h2>
-            <p className="text-sm text-gray-500 mb-4">{profile?.email}</p>
-            <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
-              Active Tenant
+            <h3 className="font-h3 text-on-background mt-4">{user?.name}</h3>
+            <p className="text-body-md text-on-surface-variant">{user?.email}</p>
+            <div className="mt-2">
+              <Badge status="active" label="Tenant" />
             </div>
-          </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center"><FiHome className="mr-2 text-blue-500"/> Room Details</h3>
+            {/* Divider */}
+            <div className="border-t border-outline-variant my-4"></div>
+
+            {/* Room Card (mini) */}
+            <div className="bg-surface-container rounded-lg p-4 text-left">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="material-symbols-outlined text-secondary-container text-[20px]">bed</span>
+                <span className="font-label-md text-on-surface">Room {room?.roomNumber || 'N/A'}</span>
+              </div>
+              <p className="text-body-md text-on-surface-variant">Floor {room?.floor || 'N/A'} · {room?.type || 'Single'}</p>
+              <p className="font-h3 text-primary mt-2">₹{(room?.rent || 0).toLocaleString()}/month</p>
             </div>
-            <div className="p-6">
-              {profile?.roomId ? (
-                <div className="space-y-4">
-                  <div className="flex justify-between border-b border-dashed border-gray-200 pb-2">
-                    <span className="text-gray-500 text-sm">Room Number</span>
-                    <span className="font-semibold text-gray-900">{profile.roomId.roomNumber}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-dashed border-gray-200 pb-2">
-                    <span className="text-gray-500 text-sm">Floor</span>
-                    <span className="font-semibold text-gray-900">{profile.roomId.floor}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-dashed border-gray-200 pb-2">
-                    <span className="text-gray-500 text-sm">Type</span>
-                    <span className="font-semibold text-gray-900 capitalize">{profile.roomId.type}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 text-sm">Monthly Rent</span>
-                    <span className="font-semibold text-blue-600">₹{profile.roomId.rent}</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-4 text-gray-500 text-sm italic">Not assigned to any room yet</div>
-              )}
+
+            {/* Stats */}
+            <div className="flex justify-around mt-4 pt-4 border-t border-outline-variant">
+              <div className="text-center">
+                <p className="font-h3 text-on-background">{paymentCount}</p>
+                <p className="text-[12px] text-on-surface-variant">Payments</p>
+              </div>
+              <div className="text-center">
+                <p className="font-h3 text-on-background">{complaintCount}</p>
+                <p className="text-[12px] text-on-surface-variant">Complaints</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Right Column - Forms */}
+        {/* Right Column (2/3) */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Personal Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center"><FiUser className="mr-2 text-blue-500"/> Personal Information</h3>
-              <button 
-                onClick={() => setIsEditing(!isEditing)} 
-                className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                {isEditing ? 'Cancel' : 'Edit Profile'}
-              </button>
+          {/* Personal Info Card */}
+          <div className="bg-surface-container-lowest rounded-lg border border-outline-variant p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <h3 className="font-h3 text-on-background mb-6">Personal Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormInput label="Full Name" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} />
+              <FormInput label="Email" value={form.email} readOnly />
+              <FormInput label="Phone" value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} placeholder="Enter phone number" />
+              <FormInput label="Emergency Contact" value={form.emergencyContact} onChange={(e) => setForm({...form, emergencyContact: e.target.value})} placeholder="Emergency contact" />
+              <FormInput label="ID Proof" value={user?.idProofType || 'Aadhar'} readOnly />
+              <FormInput label="Member Since" value={user?.joinDate ? new Date(user.joinDate).toLocaleDateString() : new Date().toLocaleDateString()} readOnly />
             </div>
-            <div className="p-6">
-              <form onSubmit={handleUpdateProfile}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                    <input 
-                      type="text" 
-                      disabled={!isEditing} 
-                      value={formData.name} 
-                      onChange={e => setFormData({...formData, name: e.target.value})} 
-                      className={`w-full p-2.5 rounded-lg border text-sm ${isEditing ? 'border-gray-300 focus:ring-blue-500 focus:border-blue-500 bg-white' : 'border-transparent bg-gray-50 text-gray-600'}`} 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                    <div className="flex items-center w-full p-2.5 rounded-lg border border-transparent bg-gray-50 text-sm text-gray-500">
-                      <FiMail className="mr-2 text-gray-400" /> {profile?.email}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <FiPhone className={isEditing ? 'text-gray-400' : 'text-gray-400'} />
-                      </div>
-                      <input 
-                        type="text" 
-                        disabled={!isEditing} 
-                        value={formData.phone} 
-                        onChange={e => setFormData({...formData, phone: e.target.value})} 
-                        className={`w-full pl-10 p-2.5 rounded-lg border text-sm ${isEditing ? 'border-gray-300 focus:ring-blue-500 focus:border-blue-500 bg-white' : 'border-transparent bg-gray-50 text-gray-600'}`} 
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact</label>
-                    <input 
-                      type="text" 
-                      disabled={!isEditing} 
-                      value={formData.emergencyContact} 
-                      onChange={e => setFormData({...formData, emergencyContact: e.target.value})} 
-                      className={`w-full p-2.5 rounded-lg border text-sm ${isEditing ? 'border-gray-300 focus:ring-blue-500 focus:border-blue-500 bg-white' : 'border-transparent bg-gray-50 text-gray-600'}`} 
-                      placeholder="Name & Number"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Permanent Address</label>
-                    <textarea 
-                      rows="2" 
-                      disabled={!isEditing} 
-                      value={formData.address} 
-                      onChange={e => setFormData({...formData, address: e.target.value})} 
-                      className={`w-full p-2.5 rounded-lg border text-sm ${isEditing ? 'border-gray-300 focus:ring-blue-500 focus:border-blue-500 bg-white' : 'border-transparent bg-gray-50 text-gray-600'}`} 
-                    ></textarea>
-                  </div>
-                </div>
-                {isEditing && (
-                  <div className="mt-6 flex justify-end">
-                    <button type="submit" className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
-                      Save Changes
-                    </button>
-                  </div>
-                )}
-              </form>
+            <div className="flex justify-end mt-6">
+              <button onClick={() => updateUser(form)} className="px-6 py-2.5 bg-secondary-container text-on-primary rounded font-label-md hover:bg-secondary transition-colors">
+                Save Changes
+              </button>
             </div>
           </div>
 
-          {/* Change Password */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center"><FiLock className="mr-2 text-blue-500"/> Change Password</h3>
+          {/* Change Password Card */}
+          <div className="bg-surface-container-lowest rounded-lg border border-outline-variant p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <h3 className="font-h3 text-on-background mb-6">Change Password</h3>
+            <div className="space-y-4 max-w-md">
+              <FormInput label="Current Password" type="password" value={passwordForm.current} onChange={(e) => setPasswordForm({...passwordForm, current: e.target.value})} placeholder="Enter current password" />
+              <div>
+                <FormInput label="New Password" type="password" value={passwordForm.newPass} onChange={(e) => setPasswordForm({...passwordForm, newPass: e.target.value})} placeholder="Enter new password" />
+                {passwordForm.newPass && (
+                  <div className={`h-1 rounded-full mt-1 ${strengthColor}`} style={{ width: `${(strength / 4) * 100}%`, transition: 'width 0.3s' }}></div>
+                )}
+              </div>
+              <FormInput label="Confirm Password" type="password" value={passwordForm.confirm} onChange={(e) => setPasswordForm({...passwordForm, confirm: e.target.value})} placeholder="Confirm new password" error={passwordForm.confirm && passwordForm.confirm !== passwordForm.newPass ? 'Passwords do not match' : ''} />
             </div>
-            <div className="p-6">
-              <form onSubmit={handleUpdatePassword} className="space-y-4 max-w-md">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-                  <input 
-                    type="password" 
-                    required 
-                    value={passwordData.currentPassword} 
-                    onChange={e => setPasswordData({...passwordData, currentPassword: e.target.value})} 
-                    className="w-full border-gray-300 rounded-lg shadow-sm p-2.5 border focus:ring-blue-500 focus:border-blue-500 text-sm" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-                  <input 
-                    type="password" 
-                    required 
-                    value={passwordData.newPassword} 
-                    onChange={e => setPasswordData({...passwordData, newPassword: e.target.value})} 
-                    className="w-full border-gray-300 rounded-lg shadow-sm p-2.5 border focus:ring-blue-500 focus:border-blue-500 text-sm" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-                  <input 
-                    type="password" 
-                    required 
-                    value={passwordData.confirmPassword} 
-                    onChange={e => setPasswordData({...passwordData, confirmPassword: e.target.value})} 
-                    className="w-full border-gray-300 rounded-lg shadow-sm p-2.5 border focus:ring-blue-500 focus:border-blue-500 text-sm" 
-                  />
-                </div>
-                <div className="pt-2">
-                  <button type="submit" className="bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors shadow-sm">
-                    Update Password
-                  </button>
-                </div>
-              </form>
+            <div className="flex justify-end mt-6">
+              <button className="px-6 py-2.5 bg-secondary-container text-on-primary rounded font-label-md hover:bg-secondary transition-colors">
+                Update Password
+              </button>
             </div>
           </div>
         </div>

@@ -1,166 +1,271 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import LoadingSpinner from '../components/common/LoadingSpinner';
-import { toast } from 'react-toastify';
-import RoleGuard from '../components/common/RoleGuard';
-import EmptyState from '../components/common/EmptyState';
-import { FiCreditCard } from 'react-icons/fi';
+import DataTable from '../components/common/DataTable';
+import SearchFilterBar from '../components/common/SearchFilterBar';
+import Badge from '../components/common/Badge';
+import StatCard from '../components/StatCard';
+import Modal from '../components/common/Modal';
+import FormInput from '../components/common/FormInput';
+import ConfirmModal from '../components/common/ConfirmModal';
+import { paymentService } from '../services/paymentService';
+import { tenantService } from '../services/tenantService';
 
 const Payments = () => {
-  const { user, token, isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [payments, setPayments] = useState([]);
+  const [tenants, setTenants] = useState([]);
+  const [search, setSearch] = useState('');
+  const [filterMonth, setFilterMonth] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [form, setForm] = useState({ tenantId: '', month: '', year: new Date().getFullYear(), amount: '', dueDate: '', paymentMethod: 'Cash', notes: '' });
+  const perPage = 10;
 
-  const API_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_PAYMENT_SERVICE_URL || 'http://localhost:4002');
-  const headers = { Authorization: `Bearer ${token}` };
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-  useEffect(() => {
-    fetchPayments();
-  }, [user, isAdmin, token]);
+  useEffect(() => { fetchData(); }, []);
 
-  const fetchPayments = async () => {
+  const fetchData = async () => {
     try {
+      let payData;
       if (isAdmin) {
-        const [payRes, sumRes] = await Promise.all([
-          axios.get(`${API_URL}/api/payments`, { headers }),
-          axios.get(`${API_URL}/api/payments/summary`, { headers })
-        ]);
-        setPayments(payRes.data);
-        setSummary(sumRes.data);
+        payData = await paymentService.getAllPayments().catch(() => []);
+        const t = await tenantService.getTenants().catch(() => []);
+        setTenants(Array.isArray(t) ? t : []);
       } else {
-        const res = await axios.get(`${API_URL}/api/payments/tenant/${user.id}`, { headers });
-        setPayments(res.data);
+        payData = await paymentService.getPaymentsByTenant(user?.id).catch(() => []);
       }
-    } catch (error) {
-      toast.error('Failed to load payments');
-    } finally {
-      setLoading(false);
-    }
+      setPayments(Array.isArray(payData) ? payData : []);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
-  const updateStatus = async (id, status) => {
+  const filtered = payments.filter(p => {
+    if (search) {
+      const q = search.toLowerCase();
+      const tenantName = p.tenantName || tenants.find(t => t._id === p.tenantId)?.name || '';
+      if (!tenantName.toLowerCase().includes(q)) return false;
+    }
+    if (filterMonth !== 'all' && p.month?.toString() !== filterMonth) return false;
+    if (filterStatus !== 'all' && p.status !== filterStatus) return false;
+    return true;
+  });
+
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const paged = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
+
+  const paidTotal = payments.filter(p => p.status === 'paid').reduce((s, p) => s + (p.amount || 0), 0);
+  const pendingTotal = payments.filter(p => p.status === 'pending').reduce((s, p) => s + (p.amount || 0), 0);
+  const overdueTotal = payments.filter(p => p.status === 'overdue').reduce((s, p) => s + (p.amount || 0), 0);
+
+  const getInitials = (name) => name ? name.charAt(0).toUpperCase() : 'T';
+  const getTenantName = (p) => p.tenantName || tenants.find(t => t._id === p.tenantId)?.name || 'Unknown';
+
+  const handleMarkPaid = async (payment) => {
     try {
-      await axios.put(`${API_URL}/api/payments/${id}/status`, { status }, { headers });
-      toast.success(`Payment marked as ${status}`);
-      fetchPayments();
-    } catch (error) {
-      toast.error('Failed to update status');
-    }
+      await paymentService.updateStatus(payment._id, 'paid');
+      fetchData();
+    } catch (err) { console.error(err); }
   };
 
-  const deletePayment = async (id) => {
-    if(!window.confirm('Are you sure you want to delete this payment record?')) return;
+  const handleMarkOverdue = async (payment) => {
     try {
-      await axios.delete(`${API_URL}/api/payments/${id}`, { headers });
-      toast.success('Payment deleted');
-      fetchPayments();
-    } catch (error) {
-      toast.error('Failed to delete payment');
-    }
+      await paymentService.updateStatus(payment._id, 'overdue');
+      fetchData();
+    } catch (err) { console.error(err); }
   };
 
-  if (loading) return <LoadingSpinner />;
+  const currentMonth = new Date().toLocaleString('default', { month: 'long' });
+  const currentPayment = !isAdmin ? payments.find(p => {
+    const now = new Date();
+    return p.month === now.getMonth() + 1 && p.year === now.getFullYear();
+  }) : null;
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">{isAdmin ? 'All Payments' : 'My Payments'}</h1>
-        <RoleGuard allowedRoles={['admin']}>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
-            + Create Payment
-          </button>
-        </RoleGuard>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary-container"></div>
       </div>
+    );
+  }
 
-      <RoleGuard allowedRoles={['admin']}>
-        {summary && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-5">
-              <p className="text-sm font-medium text-green-600 mb-1">Total Collected</p>
-              <h3 className="text-2xl font-bold text-green-900">₹{summary.collectedAmount}</h3>
-            </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-5">
-              <p className="text-sm font-medium text-yellow-600 mb-1">Total Pending</p>
-              <h3 className="text-2xl font-bold text-yellow-900">₹{summary.pendingAmount}</h3>
-            </div>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-5">
-              <p className="text-sm font-medium text-red-600 mb-1">Total Overdue</p>
-              <h3 className="text-2xl font-bold text-red-900">₹{summary.overdueAmount}</h3>
+  // ═══ TENANT VIEW ═══
+  if (!isAdmin) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-h1 font-h1 text-on-background">My Payments</h2>
+            <p className="text-body-md text-on-surface-variant mt-1">Your payment history</p>
+          </div>
+        </div>
+
+        {/* Current Month Card */}
+        {currentPayment && (
+          <div className="bg-primary-container rounded-lg p-6 mb-6">
+            <p className="font-label-md text-on-primary-container/70">Current Month</p>
+            <h3 className="font-h3 text-on-primary-container mt-1">{currentMonth}</h3>
+            <p className="text-h2 font-h2 text-on-primary-container mt-2">₹{(currentPayment.amount || 0).toLocaleString()}</p>
+            <div className="flex items-center gap-3 mt-3">
+              <Badge status={currentPayment.status} />
+              <span className="text-body-md text-on-primary-container/70">
+                Due: {currentPayment.dueDate ? new Date(currentPayment.dueDate).toLocaleDateString() : '-'}
+              </span>
             </div>
           </div>
         )}
-      </RoleGuard>
 
-      {payments.length === 0 ? (
-        <EmptyState 
-          icon={FiCreditCard} 
-          title="No payments found" 
-          description={isAdmin ? "There are no payment records in the system." : "You have no payment history."} 
+        {/* Payment History Table */}
+        <DataTable
+          columns={[
+            { header: 'Month', render: (row) => <span>{months[(row.month || 1) - 1]} {row.year}</span> },
+            { header: 'Amount', render: (row) => <span>₹{(row.amount || 0).toLocaleString()}</span> },
+            { header: 'Due Date', render: (row) => <span>{row.dueDate ? new Date(row.dueDate).toLocaleDateString() : '-'}</span> },
+            { header: 'Paid Date', render: (row) => <span>{row.paidDate ? new Date(row.paidDate).toLocaleDateString() : '-'}</span> },
+            { header: 'Status', render: (row) => <Badge status={row.status} /> },
+          ]}
+          data={paged}
+          pagination={{
+            currentPage, totalPages, total: filtered.length,
+            start: (currentPage - 1) * perPage + 1,
+            end: Math.min(currentPage * perPage, filtered.length),
+            onPageChange: setCurrentPage,
+          }}
         />
-      ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <RoleGuard allowedRoles={['admin']}>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant ID</th>
-                  </RoleGuard>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month/Year</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Date</th>
-                  <RoleGuard allowedRoles={['admin']}>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </RoleGuard>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {payments.map((payment) => (
-                  <tr key={payment._id} className="hover:bg-gray-50">
-                    <RoleGuard allowedRoles={['admin']}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {payment.tenantId.substring(0, 8)}...
-                      </td>
-                    </RoleGuard>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {payment.month} {payment.year}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
-                      ₹{payment.amount}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        payment.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                        payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {payment.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString() : '-'}
-                    </td>
-                    <RoleGuard allowedRoles={['admin']}>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        {payment.status !== 'completed' && (
-                          <button onClick={() => updateStatus(payment._id, 'completed')} className="text-green-600 hover:text-green-900 mr-3">Mark Paid</button>
-                        )}
-                        {payment.status === 'pending' && (
-                          <button onClick={() => updateStatus(payment._id, 'overdue')} className="text-yellow-600 hover:text-yellow-900 mr-3">Overdue</button>
-                        )}
-                        <button onClick={() => deletePayment(payment._id)} className="text-red-600 hover:text-red-900">Delete</button>
-                      </td>
-                    </RoleGuard>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      </div>
+    );
+  }
+
+  // ═══ ADMIN VIEW ═══
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-h1 font-h1 text-on-background">Payments</h2>
+          <p className="text-body-md text-on-surface-variant mt-1">Track all rent payments</p>
         </div>
-      )}
+        <button onClick={() => setShowCreateModal(true)} className="bg-secondary-container hover:bg-secondary text-on-primary font-label-md px-4 py-2.5 rounded shadow-sm transition-colors flex items-center gap-2">
+          <span className="material-symbols-outlined text-[20px]">add</span>
+          Create Payment
+        </button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-card-gap mb-8">
+        <StatCard icon="account_balance" iconBg="bg-[#e8f5e9]" value={`₹${paidTotal.toLocaleString()}`} label="Total Collected" />
+        <StatCard icon="schedule" iconBg="bg-[#fff8e1]" value={`₹${pendingTotal.toLocaleString()}`} label="Pending" />
+        <StatCard icon="warning" iconBg="bg-error-container" value={`₹${overdueTotal.toLocaleString()}`} label="Overdue" />
+      </div>
+
+      {/* Filter Bar */}
+      <SearchFilterBar
+        searchValue={search}
+        onSearchChange={setSearch}
+        placeholder="Search by tenant name..."
+        filters={[
+          {
+            type: 'select', value: filterMonth,
+            onChange: setFilterMonth,
+            options: [{ label: 'All Months', value: 'all' }, ...months.map((m, i) => ({ label: m, value: (i + 1).toString() }))]
+          },
+          {
+            type: 'select', value: filterStatus,
+            onChange: setFilterStatus,
+            options: [{ label: 'All Status', value: 'all' }, { label: 'Paid', value: 'paid' }, { label: 'Pending', value: 'pending' }, { label: 'Overdue', value: 'overdue' }]
+          }
+        ]}
+      />
+
+      {/* Table */}
+      <DataTable
+        columns={[
+          {
+            header: 'Tenant',
+            render: (row) => (
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-label-md text-sm">
+                  {getInitials(getTenantName(row))}
+                </div>
+                <span className="font-label-md text-on-surface">{getTenantName(row)}</span>
+              </div>
+            )
+          },
+          { header: 'Room', render: (row) => <span>{row.roomNumber || 'N/A'}</span> },
+          { header: 'Month/Year', render: (row) => <span>{months[(row.month || 1) - 1]} {row.year}</span> },
+          { header: 'Amount', render: (row) => <span className="font-label-md">₹{(row.amount || 0).toLocaleString()}</span> },
+          { header: 'Due Date', render: (row) => <span>{row.dueDate ? new Date(row.dueDate).toLocaleDateString() : '-'}</span> },
+          { header: 'Paid Date', render: (row) => <span>{row.paidDate ? new Date(row.paidDate).toLocaleDateString() : '-'}</span> },
+          { header: 'Status', render: (row) => <Badge status={row.status} /> },
+        ]}
+        data={paged}
+        actions={(row) => (
+          <>
+            {row.status !== 'paid' && (
+              <button onClick={() => handleMarkPaid(row)} className="p-1.5 rounded text-on-surface-variant hover:text-green-600 transition-colors" title="Mark Paid">
+                <span className="material-symbols-outlined text-[20px]">check_circle</span>
+              </button>
+            )}
+            {row.status === 'pending' && (
+              <button onClick={() => handleMarkOverdue(row)} className="p-1.5 rounded text-on-surface-variant hover:text-[#f57f17] transition-colors" title="Mark Overdue">
+                <span className="material-symbols-outlined text-[20px]">warning</span>
+              </button>
+            )}
+            <button onClick={() => { setSelectedPayment(row); setShowDeleteModal(true); }} className="p-1.5 rounded text-on-surface-variant hover:text-error transition-colors">
+              <span className="material-symbols-outlined text-[20px]">delete</span>
+            </button>
+          </>
+        )}
+        pagination={{
+          currentPage, totalPages, total: filtered.length,
+          start: (currentPage - 1) * perPage + 1,
+          end: Math.min(currentPage * perPage, filtered.length),
+          onPageChange: setCurrentPage,
+        }}
+      />
+
+      {/* Create Payment Modal */}
+      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Create Payment"
+        footer={
+          <>
+            <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 border border-outline-variant rounded text-on-surface font-label-md hover:bg-surface-container-low">Cancel</button>
+            <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md">Create</button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="font-label-md text-on-surface mb-1 block">Select Tenant</label>
+            <select value={form.tenantId} onChange={(e) => setForm({...form, tenantId: e.target.value})} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface">
+              <option value="">Choose a tenant...</option>
+              {tenants.map(t => <option key={t._id} value={t._id}>{t.name} ({t.email})</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="font-label-md text-on-surface mb-1 block">Month</label>
+            <select value={form.month} onChange={(e) => setForm({...form, month: e.target.value})} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface">
+              <option value="">Select month</option>
+              {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+            </select>
+          </div>
+          <FormInput label="Year" type="number" value={form.year} onChange={(e) => setForm({...form, year: e.target.value})} />
+          <FormInput label="Amount (₹)" type="number" value={form.amount} onChange={(e) => setForm({...form, amount: e.target.value})} placeholder="Auto-fills from room rent" />
+          <FormInput label="Due Date" type="date" value={form.dueDate} onChange={(e) => setForm({...form, dueDate: e.target.value})} />
+          <div>
+            <label className="font-label-md text-on-surface mb-1 block">Payment Method</label>
+            <select value={form.paymentMethod} onChange={(e) => setForm({...form, paymentMethod: e.target.value})} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface">
+              <option>Cash</option><option>UPI</option><option>Bank Transfer</option>
+            </select>
+          </div>
+          <FormInput label="Notes (optional)" type="textarea" value={form.notes} onChange={(e) => setForm({...form, notes: e.target.value})} placeholder="Add any notes..." rows={3} />
+        </div>
+      </Modal>
+
+      {/* Delete Confirm */}
+      <ConfirmModal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} onConfirm={() => setShowDeleteModal(false)} title="Delete Payment" message="Are you sure you want to delete this payment record?" />
     </div>
   );
 };

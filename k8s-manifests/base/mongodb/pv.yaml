@@ -1,14 +1,33 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: mongodb-pv
+  name: mongodb-storage-mongodb-0
+  labels:
+    app: mongodb
+    project: smartpg
 spec:
+  storageClassName: manual
   capacity:
     storage: 5Gi
-  volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: manual
   hostPath:
-    path: /mnt/smartpg/mongodb
+    path: "/mnt/smartpg/mongodb/data"
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mongodb-config-mongodb-0
+  labels:
+    app: mongodb
+    project: smartpg
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: "/mnt/smartpg/mongodb/config"

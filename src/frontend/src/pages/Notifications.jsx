@@ -1,192 +1,248 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import LoadingSpinner from '../components/common/LoadingSpinner';
-import RoleGuard from '../components/common/RoleGuard';
-import { toast } from 'react-toastify';
-import EmptyState from '../components/common/EmptyState';
-import { FiBell, FiTrash2, FiCheck, FiCheckAll } from 'react-icons/fi';
+import Modal from '../components/common/Modal';
+import FormInput from '../components/common/FormInput';
+import DataTable from '../components/common/DataTable';
+import ConfirmModal from '../components/common/ConfirmModal';
+import { notificationService } from '../services/notificationService';
+import { tenantService } from '../services/tenantService';
+
+const typeIcons = {
+  payment: { bg: 'bg-[#e8f5e9]', icon: 'payments', color: 'text-green-700' },
+  complaint: { bg: 'bg-error-container', icon: 'report_problem', color: 'text-on-error-container' },
+  announcement: { bg: 'bg-[#fff8e1]', icon: 'campaign', color: 'text-amber-700' },
+  system: { bg: 'bg-surface-container', icon: 'settings', color: 'text-on-surface' },
+};
+
+const getTimeAgo = (date) => {
+  if (!date) return '';
+  const diff = Date.now() - new Date(date).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} days ago`;
+};
 
 const Notifications = () => {
-  const { user, token, isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ title: '', message: '', type: 'general', tenantId: 'All Tenants' });
   const [tenants, setTenants] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [filter, setFilter] = useState('all');
+  const [form, setForm] = useState({ title: '', message: '', target: 'all', tenantId: '', type: 'announcement' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const perPage = 10;
 
-  const API_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_NOTIFICATION_SERVICE_URL || 'http://localhost:4005');
-  const TENANT_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_TENANT_SERVICE_URL || 'http://localhost:4001');
-  const headers = { Authorization: `Bearer ${token}` };
+  useEffect(() => { fetchData(); }, []);
 
-  useEffect(() => {
-    fetchNotifications();
-    if (isAdmin) {
-      axios.get(`${TENANT_URL}/api/tenants`, { headers }).then(res => setTenants(res.data)).catch(console.error);
-    }
-  }, [user, isAdmin, token]);
-
-  const fetchNotifications = async () => {
+  const fetchData = async () => {
     try {
-      const endpoint = isAdmin ? `${API_URL}/api/notifications/all` : `${API_URL}/api/notifications/${user.id}`;
-      const res = await axios.get(endpoint, { headers });
-      setNotifications(res.data);
-    } catch (error) {
-      toast.error('Failed to load notifications');
-    } finally {
-      setLoading(false);
-    }
+      if (isAdmin) {
+        const t = await tenantService.getTenants().catch(() => []);
+        setTenants(Array.isArray(t) ? t : []);
+        // Admin sees all — use a mock or fetch all notifications
+        setNotifications([]);
+      } else {
+        const data = await notificationService.getNotifications(user?.id).catch(() => []);
+        setNotifications(Array.isArray(data) ? data : []);
+      }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
-  const handleBroadcast = async (e) => {
-    e.preventDefault();
+  const handleMarkRead = async (id) => {
     try {
-      await axios.post(`${API_URL}/api/notifications/announce`, formData, { headers });
-      toast.success('Broadcast sent successfully');
-      setIsModalOpen(false);
-      setFormData({ title: '', message: '', type: 'general', tenantId: 'All Tenants' });
-      fetchNotifications();
-    } catch (e) {
-      toast.error('Failed to send broadcast');
-    }
+      await notificationService.markAsRead(id);
+      fetchData();
+    } catch (err) { console.error(err); }
   };
 
-  const markAsRead = async (id) => {
+  const handleMarkAllRead = async () => {
     try {
-      await axios.put(`${API_URL}/api/notifications/${id}/read`, {}, { headers });
-      setNotifications(notifications.map(n => n._id === id ? { ...n, isRead: true } : n));
-    } catch (e) {
-      toast.error('Failed to mark as read');
-    }
+      await notificationService.markAllAsRead(user?.id);
+      fetchData();
+    } catch (err) { console.error(err); }
   };
 
-  const markAllAsRead = async () => {
-    try {
-      await axios.put(`${API_URL}/api/notifications/read-all/${user.id}`, {}, { headers });
-      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
-      toast.success('All marked as read');
-    } catch (e) {
-      toast.error('Failed to update notifications');
-    }
-  };
-
-  const deleteNotification = async (id) => {
-    try {
-      await axios.delete(`${API_URL}/api/notifications/${id}`, { headers });
-      setNotifications(notifications.filter(n => n._id !== id));
-      toast.success('Notification deleted');
-    } catch (e) {
-      toast.error('Failed to delete notification');
-    }
-  };
-
-  if (loading) return <LoadingSpinner />;
+  const filtered = notifications.filter(n => {
+    if (filter === 'unread') return !n.isRead;
+    if (filter === 'read') return n.isRead;
+    return true;
+  });
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="flex items-center space-x-3">
-          <div className="p-3 bg-blue-100 text-blue-600 rounded-full"><FiBell size={24} /></div>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary-container"></div>
+      </div>
+    );
+  }
+
+  // ═══ ADMIN VIEW ═══
+  if (isAdmin) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Notifications</h1>
-            <p className="text-sm text-gray-500">You have {unreadCount} unread message{unreadCount !== 1 && 's'}</p>
+            <h2 className="text-h1 font-h1 text-on-background">Notifications</h2>
+            <p className="text-body-md text-on-surface-variant mt-1">Send announcements and alerts</p>
           </div>
+          <button onClick={() => setShowSendModal(true)} className="bg-secondary-container hover:bg-secondary text-on-primary font-label-md px-4 py-2.5 rounded shadow-sm transition-colors flex items-center gap-2">
+            <span className="material-symbols-outlined text-[20px]">campaign</span>
+            Send Announcement
+          </button>
         </div>
-        <div className="flex space-x-3">
-          {!isAdmin && unreadCount > 0 && (
-            <button onClick={markAllAsRead} className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-3 py-2 rounded-lg">
-              <FiCheckAll className="mr-2" /> Mark all read
+
+        {/* Sent History */}
+        <DataTable
+          columns={[
+            { header: 'Title', render: (row) => <span className="font-label-md">{row.title}</span> },
+            { header: 'Message', render: (row) => <span className="text-on-surface-variant truncate max-w-[200px] block">{row.message}</span> },
+            { header: 'Target', render: (row) => <span>{row.target || 'All'}</span> },
+            { header: 'Type', render: (row) => <span className="capitalize">{row.type}</span> },
+            { header: 'Sent At', render: (row) => <span className="text-on-surface-variant">{row.createdAt ? new Date(row.createdAt).toLocaleString() : '-'}</span> },
+          ]}
+          data={notifications}
+          actions={(row) => (
+            <button className="p-1.5 rounded text-on-surface-variant hover:text-error">
+              <span className="material-symbols-outlined text-[20px]">delete</span>
             </button>
           )}
-          <RoleGuard allowedRoles={['admin']}>
-            <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
-              + Send Broadcast
-            </button>
-          </RoleGuard>
+        />
+
+        {notifications.length === 0 && (
+          <div className="text-center py-12 text-on-surface-variant bg-surface-container-lowest rounded-lg border border-outline-variant">
+            <span className="material-symbols-outlined text-[48px] mb-2">campaign</span>
+            <p>No announcements sent yet</p>
+          </div>
+        )}
+
+        {/* Send Announcement Modal */}
+        <Modal isOpen={showSendModal} onClose={() => setShowSendModal(false)} title="Send Announcement"
+          footer={
+            <>
+              <button onClick={() => setShowSendModal(false)} className="px-4 py-2 border border-outline-variant rounded text-on-surface font-label-md hover:bg-surface-container-low">Cancel</button>
+              <button onClick={() => setShowSendModal(false)} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md">Send</button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <FormInput label="Title" value={form.title} onChange={(e) => setForm({...form, title: e.target.value})} placeholder="Announcement title" />
+            <div>
+              <label className="font-label-md text-on-surface mb-1 block">Message</label>
+              <textarea value={form.message} onChange={(e) => setForm({...form, message: e.target.value})} rows={4} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Write your message..." />
+            </div>
+            <div>
+              <label className="font-label-md text-on-surface mb-2 block">Target</label>
+              <div className="flex gap-3">
+                {['all', 'specific'].map(t => (
+                  <button key={t} onClick={() => setForm({...form, target: t})}
+                    className={`px-4 py-2 rounded-lg border font-label-md capitalize transition-colors ${
+                      form.target === t ? 'border-secondary-container bg-[#fff3e0] text-secondary-container' : 'border-outline-variant text-on-surface hover:bg-surface-container-low'
+                    }`}
+                  >{t === 'all' ? 'All Tenants' : 'Specific Tenant'}</button>
+                ))}
+              </div>
+            </div>
+            {form.target === 'specific' && (
+              <div>
+                <label className="font-label-md text-on-surface mb-1 block">Select Tenant</label>
+                <select value={form.tenantId} onChange={(e) => setForm({...form, tenantId: e.target.value})} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface">
+                  <option value="">Choose a tenant...</option>
+                  {tenants.map(t => <option key={t._id} value={t._id}>{t.name} ({t.email})</option>)}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="font-label-md text-on-surface mb-1 block">Type</label>
+              <select value={form.type} onChange={(e) => setForm({...form, type: e.target.value})} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface">
+                <option value="announcement">Announcement</option>
+                <option value="payment">Payment</option>
+                <option value="system">System</option>
+                <option value="complaint">Complaint</option>
+              </select>
+            </div>
+          </div>
+        </Modal>
+      </div>
+    );
+  }
+
+  // ═══ TENANT VIEW ═══
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-h1 font-h1 text-on-background">Notifications</h2>
+          <p className="text-body-md text-on-surface-variant mt-1">Your messages and announcements</p>
         </div>
+        {unreadCount > 0 && (
+          <button onClick={handleMarkAllRead} className="bg-secondary-container hover:bg-secondary text-on-primary font-label-md px-4 py-2.5 rounded shadow-sm transition-colors flex items-center gap-2">
+            <span className="material-symbols-outlined text-[20px]">done_all</span>
+            Mark All Read
+          </button>
+        )}
       </div>
 
-      {notifications.length === 0 ? (
-        <EmptyState icon={FiBell} title="All caught up!" description="You don't have any notifications at the moment." />
-      ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <ul className="divide-y divide-gray-100">
-            {notifications.map(notif => (
-              <li key={notif._id} className={`p-4 transition-colors ${!notif.isRead && !isAdmin ? 'bg-blue-50/50 hover:bg-blue-50' : 'hover:bg-gray-50'}`}>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start space-x-3 flex-1">
-                    <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${!notif.isRead && !isAdmin ? 'bg-blue-600' : 'bg-transparent'}`}></div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center space-x-2">
-                          <h4 className={`text-sm ${!notif.isRead && !isAdmin ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>{notif.title}</h4>
-                          <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider bg-gray-100 px-2 py-0.5 rounded">{notif.type}</span>
-                          {isAdmin && !notif.tenantId && <span className="text-[10px] uppercase font-bold text-purple-600 tracking-wider bg-purple-100 px-2 py-0.5 rounded">BROADCAST</span>}
-                        </div>
-                        <span className="text-xs text-gray-400 whitespace-nowrap">{new Date(notif.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      <p className={`text-sm ${!notif.isRead && !isAdmin ? 'text-gray-700' : 'text-gray-500'}`}>{notif.message}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {!isAdmin && !notif.isRead && (
-                      <button onClick={() => markAsRead(notif._id)} title="Mark as read" className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors">
-                        <FiCheck size={16} />
-                      </button>
-                    )}
-                    {isAdmin && (
-                      <button onClick={() => deleteNotification(notif._id)} title="Delete" className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors">
-                        <FiTrash2 size={16} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* Filter Tabs */}
+      <div className="flex gap-6 border-b border-outline-variant mb-6">
+        {[
+          { key: 'all', label: 'All' },
+          { key: 'unread', label: `Unread (${unreadCount})` },
+          { key: 'read', label: 'Read' },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => setFilter(tab.key)}
+            className={`pb-2 font-label-md transition-colors ${
+              filter === tab.key
+                ? 'border-b-2 border-secondary-container text-secondary-container'
+                : 'border-b-2 border-transparent text-on-surface-variant hover:text-on-surface'
+            }`}
+          >{tab.label}</button>
+        ))}
+      </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 transform transition-all">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center"><FiBell className="mr-2 text-blue-600" /> Send Notification</h2>
-            <form onSubmit={handleBroadcast} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Target Audience</label>
-                <select value={formData.tenantId} onChange={e => setFormData({...formData, tenantId: e.target.value})} className="w-full border-gray-300 rounded-lg shadow-sm p-2.5 border focus:ring-blue-500 focus:border-blue-500 text-sm">
-                  <option value="All Tenants">All Tenants (Broadcast)</option>
-                  {tenants.map(t => (
-                    <option key={t._id} value={t._id}>{t.name} ({t.roomId?.roomNumber || 'No Room'})</option>
-                  ))}
-                </select>
+      {/* Notification List */}
+      <div className="space-y-3">
+        {filtered.map((n, i) => {
+          const typeStyle = typeIcons[n.type] || typeIcons.system;
+          return (
+            <div key={i} className={`flex gap-4 p-4 rounded-lg transition-colors ${
+              n.isRead
+                ? 'bg-surface-container-lowest border border-outline-variant'
+                : 'bg-surface-container-low border-l-4 border-secondary-container'
+            }`}>
+              {/* Icon */}
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${typeStyle.bg}`}>
+                <span className={`material-symbols-outlined text-[20px] ${typeStyle.color}`}>{typeStyle.icon}</span>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notification Type</label>
-                <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full border-gray-300 rounded-lg shadow-sm p-2.5 border focus:ring-blue-500 focus:border-blue-500 text-sm">
-                  <option value="general">General Update</option>
-                  <option value="payment">Payment Alert</option>
-                  <option value="complaint">Complaint Status</option>
-                  <option value="urgent">Urgent Notice</option>
-                </select>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-start">
+                  <p className={`font-label-md text-on-surface ${!n.isRead ? 'font-bold' : ''}`}>{n.title}</p>
+                  <span className="text-[12px] text-on-surface-variant flex-shrink-0 ml-2">{getTimeAgo(n.createdAt)}</span>
+                </div>
+                <p className="text-body-md text-on-surface-variant mt-1">{n.message}</p>
+                {!n.isRead && (
+                  <button onClick={() => handleMarkRead(n._id)} className="text-secondary-container font-label-sm hover:underline mt-2">
+                    Mark as Read
+                  </button>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full border-gray-300 rounded-lg shadow-sm p-2.5 border focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="e.g., Water Supply Maintenance" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-                <textarea required rows="4" value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} className="w-full border-gray-300 rounded-lg shadow-sm p-2.5 border focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="Type the notification message here..."></textarea>
-              </div>
-              <div className="mt-6 flex justify-end space-x-3 pt-4 border-t border-gray-100">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 rounded-lg text-sm font-medium text-white hover:bg-blue-700 shadow-sm transition-colors">Send Notification</button>
-              </div>
-            </form>
-          </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="text-center py-12 text-on-surface-variant">
+          <span className="material-symbols-outlined text-[48px] mb-2">notifications_off</span>
+          <p>No notifications yet</p>
         </div>
       )}
     </div>

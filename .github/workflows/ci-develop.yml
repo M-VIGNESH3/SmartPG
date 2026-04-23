@@ -104,10 +104,29 @@ jobs:
       - name: Create Secrets
         run: |
           kubectl create secret generic smartpg-secrets \
-            --from-literal=MONGO_URI="mongodb://admin:${{ secrets.MONGO_PASSWORD }}@mongodb-service:27017/smartpg_db?authSource=admin" \
+            --from-literal=MONGO_URI="mongodb://admin:${{ secrets.MONGO_PASSWORD }}@mongodb-client:27017/smartpg_db?authSource=admin" \
+            --from-literal=MONGO_USERNAME="admin" \
+            --from-literal=MONGO_PASSWORD="${{ secrets.MONGO_PASSWORD }}" \
             --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
             --namespace=smartpg-dev \
             --dry-run=client -o yaml | kubectl apply -f -
+      - name: Install Envoy Gateway (if not present)
+        run: |
+          kubectl apply -f \
+            https://github.com/envoyproxy/gateway/releases/download/v1.1.0/install.yaml
+          kubectl wait --timeout=5m \
+            -n envoy-gateway-system \
+            deployment/envoy-gateway \
+            --for=condition=Available
+      - name: Apply Gateway API CRDs
+        run: |
+          kubectl apply -f \
+            https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.1.0/standard-install.yaml
+      - name: Apply Gateway manifests
+        run: |
+          kubectl apply -f k8s-manifests/base/gateway/
+          kubectl apply -f k8s-manifests/dev/gateway.yaml
+          kubectl apply -f k8s-manifests/dev/httproute.yaml
       - name: Apply Base Manifests
         run: |
           kubectl apply -f k8s-manifests/base/mongodb/
@@ -133,3 +152,12 @@ jobs:
           kubectl rollout status deployment/complaint-service --timeout=300s -n smartpg-dev
           kubectl rollout status deployment/notification-service --timeout=300s -n smartpg-dev
           kubectl rollout status deployment/frontend --timeout=300s -n smartpg-dev
+      - name: Verify Gateway
+        run: |
+          kubectl get gateway -n smartpg-dev
+          kubectl get httproute -n smartpg-dev
+          kubectl describe gateway smartpg-gateway -n smartpg-dev
+      - name: Verify StatefulSet
+        run: |
+          kubectl get statefulset -n smartpg-dev
+          kubectl get pvc -n smartpg-dev

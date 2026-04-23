@@ -1,0 +1,17 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: smartpg-gateway
+  namespace: smartpg-dev
+  labels:
+    project: smartpg
+    environment: development
+spec:
+  gatewayClassName: smartpg-gateway-class
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same

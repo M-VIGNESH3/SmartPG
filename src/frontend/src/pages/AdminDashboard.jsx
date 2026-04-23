@@ -1,198 +1,191 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import StatCard from '../components/common/StatCard';
-import { FiUsers, FiHome, FiDollarSign, FiMessageSquare } from 'react-icons/fi';
-import LoadingSpinner from '../components/common/LoadingSpinner';
-import { Link } from 'react-router-dom';
+import StatCard from '../components/StatCard';
+import Badge from '../components/common/Badge';
+import { tenantService } from '../services/tenantService';
+import { paymentService } from '../services/paymentService';
+import { complaintService } from '../services/complaintService';
 
 const AdminDashboard = () => {
-  const { token } = useAuth();
-  const [stats, setStats] = useState(null);
+  const { user } = useAuth();
+  const [stats, setStats] = useState({ totalTenants: 0, availableRooms: 0, totalRooms: 0 });
+  const [payments, setPayments] = useState([]);
+  const [complaints, setComplaints] = useState([]);
+  const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [recentTenants, setRecentTenants] = useState([]);
-  const [recentComplaints, setRecentComplaints] = useState([]);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const headers = { Authorization: `Bearer ${token}` };
-        const TENANT_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_TENANT_SERVICE_URL || 'http://localhost:4001');
-        const PAYMENT_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_PAYMENT_SERVICE_URL || 'http://localhost:4002');
-        const COMPLAINT_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_COMPLAINT_SERVICE_URL || 'http://localhost:4004');
+    fetchData();
+  }, []);
 
-        const [tenantsRes, roomsRes, paymentsRes, complaintsStatsRes, complaintsRes] = await Promise.all([
-          axios.get(`${TENANT_URL}/api/tenants`, { headers }),
-          axios.get(`${TENANT_URL}/api/rooms`, { headers }),
-          axios.get(`${PAYMENT_URL}/api/payments/summary`, { headers }),
-          axios.get(`${COMPLAINT_URL}/api/complaints/stats`, { headers }),
-          axios.get(`${COMPLAINT_URL}/api/complaints`, { headers })
-        ]);
+  const fetchData = async () => {
+    try {
+      const [tenantData, roomData, paymentData, complaintData] = await Promise.all([
+        tenantService.getTenants().catch(() => []),
+        tenantService.getRooms().catch(() => []),
+        paymentService.getAllPayments().catch(() => []),
+        complaintService.getAllComplaints().catch(() => []),
+      ]);
+      
+      const rooms = Array.isArray(roomData) ? roomData : [];
+      const available = rooms.filter(r => r.isAvailable).length;
 
-        const tenants = tenantsRes.data || [];
-        const rooms = roomsRes.data || [];
-        
-        const activeTenants = tenants.filter(t => t.isActive).length;
-        const availableRooms = rooms.filter(r => r.status === 'Available').length;
-        const occupiedRooms = rooms.filter(r => r.status === 'Occupied').length;
-        const maintenanceRooms = rooms.filter(r => r.status === 'Maintenance').length;
+      setTenants(Array.isArray(tenantData) ? tenantData : []);
+      setPayments(Array.isArray(paymentData) ? paymentData : []);
+      setComplaints(Array.isArray(complaintData) ? complaintData : []);
+      setStats({
+        totalTenants: Array.isArray(tenantData) ? tenantData.length : 0,
+        availableRooms: available,
+        totalRooms: rooms.length,
+      });
+    } catch (err) {
+      console.error('Dashboard fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        setStats({
-          tenants: { total: tenants.length, active: activeTenants, inactive: tenants.length - activeTenants },
-          rooms: { total: rooms.length, occupied: occupiedRooms, available: availableRooms, maintenance: maintenanceRooms },
-          payments: paymentsRes.data || { collectedAmount: 0, pendingAmount: 0, overdueAmount: 0 },
-          complaints: complaintsStatsRes.data || { Open: 0, 'In Progress': 0, Resolved: 0, Total: 0 }
-        });
+  const pendingPayments = payments.filter(p => p.status === 'pending');
+  const pendingAmount = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const paidPayments = payments.filter(p => p.status === 'paid');
+  const paidAmount = paidPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const overduePayments = payments.filter(p => p.status === 'overdue');
+  const overdueAmount = overduePayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const openComplaints = complaints.filter(c => c.status === 'open');
+  const inProgressComplaints = complaints.filter(c => c.status === 'in-progress');
+  const resolvedComplaints = complaints.filter(c => c.status === 'resolved');
+  const recentTenants = tenants.slice(-5).reverse();
 
-        setRecentTenants(tenants.slice(0, 5));
-        setRecentComplaints((complaintsRes.data || []).slice(0, 5));
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const getInitials = (name) => name ? name.charAt(0).toUpperCase() : 'T';
 
-    fetchDashboardData();
-  }, [token]);
+  const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary-container"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-        <div className="flex space-x-2">
-          <Link to="/tenants" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
-            + Add Tenant
-          </Link>
-          <Link to="/rooms" className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
-            + Add Room
-          </Link>
+    <div>
+      {/* Page Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-h1 font-h1 text-on-background">Dashboard</h2>
+          <p className="text-body-md text-on-surface-variant mt-1">Welcome back, {user?.name || 'Admin'}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          icon={FiHome} 
-          title="Rooms" 
-          value={stats?.rooms.total || 0} 
-          subtitle={`${stats?.rooms.available || 0} Available · ${stats?.rooms.occupied || 0} Occupied`}
-          color="blue"
-        />
-        <StatCard 
-          icon={FiUsers} 
-          title="Tenants" 
-          value={stats?.tenants.total || 0} 
-          subtitle={`${stats?.tenants.active || 0} Active · ${stats?.tenants.inactive || 0} Inactive`}
-          color="green"
-        />
-        <StatCard 
-          icon={FiDollarSign} 
-          title="Payments Collected" 
-          value={`₹${stats?.payments.collectedAmount || 0}`} 
-          subtitle={`Pending: ₹${stats?.payments.pendingAmount || 0} · Overdue: ₹${stats?.payments.overdueAmount || 0}`}
-          color="purple"
-        />
-        <StatCard 
-          icon={FiMessageSquare} 
-          title="Open Complaints" 
-          value={stats?.complaints.Open || 0} 
-          subtitle={`In Progress: ${stats?.complaints['In Progress'] || 0} · Resolved: ${stats?.complaints.Resolved || 0}`}
-          color="yellow"
-        />
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-card-gap mb-8">
+        <StatCard icon="group" iconBg="bg-primary-container" value={stats.totalTenants} label="Total Tenants" trend="+2 this month" trendDirection="up" />
+        <StatCard icon="bed" iconBg="bg-[#e8f5e9]" value={`${stats.availableRooms}/${stats.totalRooms}`} label="Available Rooms" trend={`${stats.totalRooms - stats.availableRooms} occupied`} />
+        <StatCard icon="payments" iconBg="bg-[#fff8e1]" value={`₹${pendingAmount.toLocaleString()}`} label="Pending Payments" trend={`${pendingPayments.length} tenants`} />
+        <StatCard icon="report_problem" iconBg="bg-error-container" value={openComplaints.length} label="Open Complaints" trend={`${openComplaints.filter(c => c.priority === 'urgent' || c.priority === 'high').length} urgent`} trendDirection="down" />
       </div>
 
+      {/* Lower Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Tenants */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-gray-900">Recent Tenants</h2>
-            <Link to="/tenants" className="text-sm text-blue-600 hover:underline">View All</Link>
+        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-h3 text-on-background">Recent Tenants</h3>
+            <a href="/tenants" className="text-secondary-container font-label-sm hover:underline">View All</a>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-outline-variant">
+                <th className="pb-3 font-label-sm text-on-surface-variant uppercase tracking-wider">Name</th>
+                <th className="pb-3 font-label-sm text-on-surface-variant uppercase tracking-wider">Room</th>
+                <th className="pb-3 font-label-sm text-on-surface-variant uppercase tracking-wider">Status</th>
+                <th className="pb-3 font-label-sm text-on-surface-variant uppercase tracking-wider">Joined</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant">
+              {recentTenants.map((tenant, i) => (
+                <tr key={i} className="hover:bg-surface-container-low transition-colors">
+                  <td className="py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-label-md text-sm">
+                        {getInitials(tenant.name)}
+                      </div>
+                      <span className="font-label-md text-on-surface">{tenant.name}</span>
+                    </div>
+                  </td>
+                  <td className="py-3 text-body-md text-on-surface">{tenant.roomNumber || 'N/A'}</td>
+                  <td className="py-3"><Badge status={tenant.status || 'active'} /></td>
+                  <td className="py-3 text-body-md text-on-surface-variant">{tenant.joinDate ? new Date(tenant.joinDate).toLocaleDateString() : 'N/A'}</td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {recentTenants.map((tenant) => (
-                  <tr key={tenant._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{tenant.name}</div>
-                      <div className="text-sm text-gray-500">{tenant.email}</div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      {tenant.roomId?.roomNumber || 'Not Assigned'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(tenant.createdAt).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-                {recentTenants.length === 0 && (
-                  <tr>
-                    <td colSpan="3" className="px-4 py-8 text-center text-sm text-gray-500">No tenants found</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+              ))}
+              {recentTenants.length === 0 && (
+                <tr><td colSpan={4} className="py-6 text-center text-on-surface-variant">No tenants yet</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
 
-        {/* Recent Complaints */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-gray-900">Recent Complaints</h2>
-            <Link to="/complaints" className="text-sm text-blue-600 hover:underline">View All</Link>
-          </div>
-          <div className="space-y-4">
-            {recentComplaints.map((complaint) => (
-              <div key={complaint._id} className="flex justify-between items-start p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900">{complaint.title}</h4>
-                  <p className="text-xs text-gray-500 mt-1">{complaint.category}</p>
-                </div>
-                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                  complaint.status === 'Open' ? 'bg-red-100 text-red-800' : 
-                  complaint.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' : 
-                  'bg-green-100 text-green-800'
-                }`}>
-                  {complaint.status}
-                </span>
+        {/* Complaints Overview */}
+        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <h3 className="font-h3 text-on-background mb-4">Complaints Overview</h3>
+          
+          <div className="space-y-6">
+            {/* Open */}
+            <div>
+              <div className="flex justify-between mb-2">
+                <span className="font-label-md text-on-surface">Open</span>
+                <span className="font-label-sm text-on-surface-variant">{openComplaints.length}/{complaints.length}</span>
               </div>
-            ))}
-            {recentComplaints.length === 0 && (
-              <div className="text-center py-8 text-sm text-gray-500">No recent complaints</div>
-            )}
+              <div className="w-full h-2 rounded-full bg-slate-200">
+                <div className="h-2 rounded-full bg-error transition-all" style={{ width: `${complaints.length ? (openComplaints.length / complaints.length * 100) : 0}%` }}></div>
+              </div>
+            </div>
+
+            {/* In Progress */}
+            <div>
+              <div className="flex justify-between mb-2">
+                <span className="font-label-md text-on-surface">In Progress</span>
+                <span className="font-label-sm text-on-surface-variant">{inProgressComplaints.length}/{complaints.length}</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-slate-200">
+                <div className="h-2 rounded-full bg-[#f57f17] transition-all" style={{ width: `${complaints.length ? (inProgressComplaints.length / complaints.length * 100) : 0}%` }}></div>
+              </div>
+            </div>
+
+            {/* Resolved */}
+            <div>
+              <div className="flex justify-between mb-2">
+                <span className="font-label-md text-on-surface">Resolved</span>
+                <span className="font-label-sm text-on-surface-variant">{resolvedComplaints.length}/{complaints.length}</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-slate-200">
+                <div className="h-2 rounded-full bg-primary-container transition-all" style={{ width: `${complaints.length ? (resolvedComplaints.length / complaints.length * 100) : 0}%` }}></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Link to="/payments" className="p-4 border border-gray-200 rounded-lg text-center hover:border-blue-500 hover:bg-blue-50 transition-colors group">
-            <FiDollarSign className="mx-auto h-6 w-6 text-gray-400 group-hover:text-blue-600 mb-2" />
-            <span className="text-sm font-medium text-gray-900">Collect Payment</span>
-          </Link>
-          <Link to="/mess" className="p-4 border border-gray-200 rounded-lg text-center hover:border-blue-500 hover:bg-blue-50 transition-colors group">
-            <FiUsers className="mx-auto h-6 w-6 text-gray-400 group-hover:text-blue-600 mb-2" />
-            <span className="text-sm font-medium text-gray-900">Update Menu</span>
-          </Link>
-          <Link to="/notifications" className="p-4 border border-gray-200 rounded-lg text-center hover:border-blue-500 hover:bg-blue-50 transition-colors group">
-            <FiMessageSquare className="mx-auto h-6 w-6 text-gray-400 group-hover:text-blue-600 mb-2" />
-            <span className="text-sm font-medium text-gray-900">Send Broadcast</span>
-          </Link>
-          <Link to="/rooms" className="p-4 border border-gray-200 rounded-lg text-center hover:border-blue-500 hover:bg-blue-50 transition-colors group">
-            <FiHome className="mx-auto h-6 w-6 text-gray-400 group-hover:text-blue-600 mb-2" />
-            <span className="text-sm font-medium text-gray-900">Manage Rooms</span>
-          </Link>
+      {/* Payment Summary */}
+      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant p-6 mt-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <h3 className="font-h3 text-on-background mb-6">Payment Summary — {currentMonth}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="text-center p-4 rounded-lg bg-[#e8f5e9]">
+            <div className="text-h1 font-h1 text-green-800">₹{paidAmount.toLocaleString()}</div>
+            <div className="text-body-md text-green-700 mt-1">Collected</div>
+            <div className="font-label-sm text-green-600 mt-2">{paidPayments.length} payments</div>
+          </div>
+          <div className="text-center p-4 rounded-lg bg-[#fff8e1]">
+            <div className="text-h1 font-h1 text-amber-800">₹{pendingAmount.toLocaleString()}</div>
+            <div className="text-body-md text-amber-700 mt-1">Pending</div>
+            <div className="font-label-sm text-amber-600 mt-2">{pendingPayments.length} payments</div>
+          </div>
+          <div className="text-center p-4 rounded-lg bg-error-container">
+            <div className="text-h1 font-h1 text-on-error-container">₹{overdueAmount.toLocaleString()}</div>
+            <div className="text-body-md text-on-error-container mt-1">Overdue</div>
+            <div className="font-label-sm text-on-error-container mt-2">{overduePayments.length} payments</div>
+          </div>
         </div>
       </div>
     </div>

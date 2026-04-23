@@ -131,3 +131,54 @@ kubectl exec -it deployment/tenant-service -n smartpg-dev -- wget -qO- http://no
 | SAST | CodeQL | CI | Security vulnerabilities in code |
 | Image Scan | Trivy | CI | CRITICAL or HIGH vulnerabilities |
 | Container | Docker | Build | Running as root |
+
+## Gateway API Architecture
+
+```text
+Internet
+  ↓
+Gateway (smartpg-gateway) Port 80
+  ↓ (route matching)
+┌─────────────────────────────────────┐
+│  /api/auth, /api/tenants → :4001   │
+│  /api/payments           → :4002   │
+│  /api/menu, /api/orders  → :4003   │
+│  /api/complaints         → :4004   │
+│  /api/notifications      → :4005   │
+│  /                       → :80     │
+└─────────────────────────────────────┘
+```
+
+The Gateway API replaces the legacy Ingress controller with a more expressive, role-oriented routing model:
+- **GatewayClass**: Defines the Envoy Gateway controller (`gateway.envoy.io/gatewayclass-controller`)
+- **Gateway**: Per-environment listener on port 80
+- **HTTPRoute**: Route rules matching path prefixes to backend services
+- **NetworkPolicy**: Restricts ingress to pods from Envoy Gateway system namespace
+
+## MongoDB StatefulSet
+
+MongoDB has been migrated from a Deployment to a **StatefulSet** for production-grade data persistence:
+
+- **StatefulSet** gives stable pod identity — pod name is always `mongodb-0` (predictable)
+- **Headless Service** (`mongodb-service`, ClusterIP: None) — required for StatefulSet DNS resolution
+- **Client Service** (`mongodb-client`, ClusterIP) — used by all app services for connecting to MongoDB
+- **volumeClaimTemplates** — auto-creates PVCs named `mongodb-storage-mongodb-0` and `mongodb-config-mongodb-0`
+- **Data persists** across pod restarts and rescheduling
+- **PV names must match** the VCT pattern: `{templateName}-{statefulsetName}-{ordinal}`
+
+### Verify Gateway
+
+```bash
+kubectl get gateway -n smartpg-dev
+kubectl get httproute -n smartpg-dev
+kubectl describe httproute smartpg-routes -n smartpg-dev
+```
+
+### Verify StatefulSet
+
+```bash
+kubectl get statefulset -n smartpg-dev
+kubectl get pvc -n smartpg-dev
+kubectl logs mongodb-0 -n smartpg-dev
+```
+

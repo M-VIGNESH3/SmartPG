@@ -1,96 +1,120 @@
-import { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    setError('');
+    setLoading(true);
     try {
       await login(email, password);
       navigate('/dashboard');
-      toast.success('Logged in successfully');
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Login failed. Please try again.');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
+  const fillDemo = (demoEmail, demoPass) => {
+    setEmail(demoEmail);
+    setPassword(demoPass);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-blue-600">
-            SmartPG
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Premium PG Management System
-          </p>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md border border-outline-variant">
+        {/* Logo area */}
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center mx-auto mb-4">
+            <span className="material-symbols-outlined text-on-primary-container text-[28px]">apartment</span>
+          </div>
+          <h1 className="text-h2 font-h2 text-on-background">SmartPG</h1>
+          <p className="text-body-md text-on-surface-variant mt-1">Paying Guest Management System</p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm space-y-4">
-            <div>
-              <label htmlFor="email-address" className="block text-sm font-medium text-gray-700">Email address</label>
+
+        {/* Error message */}
+        {error && (
+          <div className="mb-4 p-3 bg-error-container text-on-error-container rounded-md text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Form */}
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="font-label-md text-on-surface mb-1 block">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
+              required
+              className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="font-label-md text-on-surface mb-1 block">Password</label>
+            <div className="relative">
               <input
-                id="email-address"
-                name="email"
-                type="email"
-                required
-                className="mt-1 appearance-none rounded-lg relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className="mt-1 appearance-none rounded-lg relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
-                placeholder="Enter your password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+                className="w-full px-3 py-2 pr-10 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface"
+              >
+                <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+              </button>
             </div>
           </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${isSubmitting ? 'opacity-75 cursor-not-allowed' : ''}`}
-            >
-              {isSubmitting ? 'Signing in...' : 'Sign in'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-secondary-container hover:bg-secondary text-on-primary font-label-md py-3 rounded-md transition-colors mt-6 disabled:opacity-50"
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
         </form>
 
-        <div className="mt-8 bg-blue-50 p-4 rounded-lg border border-blue-100">
-          <h3 className="text-sm font-bold text-blue-800 mb-2 flex items-center">
-            <span className="mr-2">🔐</span> Demo Credentials
-          </h3>
-          <div className="space-y-3 text-sm text-blue-900">
-            <div className="flex flex-col sm:flex-row sm:justify-between p-2 bg-white rounded border border-blue-100 hover:border-blue-300 transition-colors cursor-pointer" onClick={() => { setEmail('admin@smartpg.com'); setPassword('Admin@123'); }}>
-              <span className="font-semibold w-16">Admin:</span>
-              <span className="font-mono">admin@smartpg.com / Admin@123</span>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:justify-between p-2 bg-white rounded border border-blue-100 hover:border-blue-300 transition-colors cursor-pointer" onClick={() => { setEmail('rahul@smartpg.com'); setPassword('Tenant@123'); }}>
-              <span className="font-semibold w-16">Tenant:</span>
-              <span className="font-mono">rahul@smartpg.com / Tenant@123</span>
+        {/* Demo credentials */}
+        <div className="mt-6 p-4 bg-surface-container-low rounded-lg border border-outline-variant">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="material-symbols-outlined text-[16px] text-secondary-container">key</span>
+            <span className="font-label-md text-on-surface">Demo Credentials</span>
+          </div>
+
+          <div className="py-2 border-b border-outline-variant flex justify-between items-center cursor-pointer hover:bg-surface-container rounded px-2 -mx-2 transition-colors" onClick={() => fillDemo('admin@smartpg.com', 'Admin@123')}>
+            <span className="bg-primary-container text-on-primary-container px-2 py-0.5 rounded text-[11px] font-label-sm">Admin</span>
+            <div className="text-right">
+              <p className="font-label-sm text-on-surface">admin@smartpg.com</p>
+              <p className="text-[11px] text-on-surface-variant">Admin@123</p>
             </div>
           </div>
-          <p className="mt-3 text-xs text-blue-600 italic text-center">Click a row to auto-fill credentials</p>
+
+          <div className="py-2 flex justify-between items-center cursor-pointer hover:bg-surface-container rounded px-2 -mx-2 transition-colors mt-1" onClick={() => fillDemo('rahul@smartpg.com', 'Tenant@123')}>
+            <span className="bg-primary-container text-on-primary-container px-2 py-0.5 rounded text-[11px] font-label-sm">Tenant</span>
+            <div className="text-right">
+              <p className="font-label-sm text-on-surface">rahul@smartpg.com</p>
+              <p className="text-[11px] text-on-surface-variant">Tenant@123</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

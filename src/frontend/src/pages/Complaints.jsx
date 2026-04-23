@@ -1,201 +1,318 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import LoadingSpinner from '../components/common/LoadingSpinner';
-import RoleGuard from '../components/common/RoleGuard';
-import { toast } from 'react-toastify';
-import EmptyState from '../components/common/EmptyState';
-import { FiMessageSquare } from 'react-icons/fi';
+import DataTable from '../components/common/DataTable';
+import SearchFilterBar from '../components/common/SearchFilterBar';
+import Badge from '../components/common/Badge';
+import StatCard from '../components/StatCard';
+import Modal from '../components/common/Modal';
+import FormInput from '../components/common/FormInput';
+import ConfirmModal from '../components/common/ConfirmModal';
+import { complaintService } from '../services/complaintService';
+
+const priorityStyles = {
+  urgent: 'bg-error text-on-error',
+  high: 'bg-[#fff8e1] text-[#e65100]',
+  medium: 'bg-surface-container text-on-surface',
+  low: 'bg-surface-variant text-on-surface-variant',
+};
+
+const categories = [
+  { value: 'maintenance', label: '🔧 Maintenance' },
+  { value: 'cleanliness', label: '🧹 Cleanliness' },
+  { value: 'noise', label: '🔊 Noise' },
+  { value: 'security', label: '🔒 Security' },
+  { value: 'food', label: '🍽️ Food' },
+  { value: 'other', label: '❓ Other' },
+];
 
 const Complaints = () => {
-  const { user, token, isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [complaints, setComplaints] = useState([]);
-  const [stats, setStats] = useState(null);
+  const [search, setSearch] = useState('');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterPriority, setFilterPriority] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ title: '', description: '', category: 'Maintenance', priority: 'Medium' });
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [form, setForm] = useState({ category: 'maintenance', title: '', description: '', priority: 'medium' });
+  const [adminNote, setAdminNote] = useState('');
+  const [statusChange, setStatusChange] = useState('');
+  const perPage = 10;
 
-  const API_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_COMPLAINT_SERVICE_URL || 'http://localhost:4004');
-  const headers = { Authorization: `Bearer ${token}` };
+  useEffect(() => { fetchData(); }, []);
 
-  useEffect(() => {
-    fetchComplaints();
-  }, [user, isAdmin, token]);
-
-  const fetchComplaints = async () => {
+  const fetchData = async () => {
     try {
+      let data;
       if (isAdmin) {
-        const [compRes, statsRes] = await Promise.all([
-          axios.get(`${API_URL}/api/complaints`, { headers }),
-          axios.get(`${API_URL}/api/complaints/stats`, { headers })
-        ]);
-        setComplaints(compRes.data);
-        setStats(statsRes.data);
+        data = await complaintService.getAllComplaints().catch(() => []);
       } else {
-        const res = await axios.get(`${API_URL}/api/complaints/tenant/${user.id}`, { headers });
-        setComplaints(res.data);
+        data = await complaintService.getComplaintsByTenant(user?.id).catch(() => []);
       }
-    } catch (error) {
-      toast.error('Failed to load complaints');
-    } finally {
-      setLoading(false);
-    }
+      setComplaints(Array.isArray(data) ? data : []);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
+  const handleCreate = async () => {
     try {
-      await axios.post(`${API_URL}/api/complaints`, formData, { headers });
-      toast.success('Complaint raised successfully');
-      setIsModalOpen(false);
-      setFormData({ title: '', description: '', category: 'Maintenance', priority: 'Medium' });
-      fetchComplaints();
-    } catch (e) {
-      toast.error('Failed to raise complaint');
-    }
+      await complaintService.createComplaint({ ...form, tenantId: user?.id });
+      setShowCreateModal(false);
+      setForm({ category: 'maintenance', title: '', description: '', priority: 'medium' });
+      fetchData();
+    } catch (err) { console.error(err); }
   };
 
-  const updateStatus = async (id, status) => {
+  const handleStatusChange = async (id, status) => {
     try {
-      await axios.put(`${API_URL}/api/complaints/${id}/status`, { status }, { headers });
-      toast.success('Status updated');
-      fetchComplaints();
-    } catch (e) {
-      toast.error('Failed to update status');
-    }
+      await complaintService.updateStatus(id, status);
+      fetchData();
+    } catch (err) { console.error(err); }
   };
 
-  const deleteComplaint = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this complaint?')) return;
-    try {
-      await axios.delete(`${API_URL}/api/complaints/${id}`, { headers });
-      toast.success('Complaint deleted');
-      fetchComplaints();
-    } catch (e) {
-      toast.error('Failed to delete complaint');
+  const filtered = complaints.filter(c => {
+    if (search) {
+      const q = search.toLowerCase();
+      if (!(c.title?.toLowerCase().includes(q) || c.tenantName?.toLowerCase().includes(q))) return false;
     }
-  };
+    if (filterCategory !== 'all' && c.category !== filterCategory) return false;
+    if (filterPriority !== 'all' && c.priority !== filterPriority) return false;
+    if (filterStatus !== 'all' && c.status !== filterStatus) return false;
+    return true;
+  });
 
-  if (loading) return <LoadingSpinner />;
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const paged = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
+  const openCount = complaints.filter(c => c.status === 'open').length;
+  const inProgressCount = complaints.filter(c => c.status === 'in-progress').length;
+  const resolvedCount = complaints.filter(c => c.status === 'resolved').length;
+  const getInitials = (name) => name ? name.charAt(0).toUpperCase() : 'T';
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">{isAdmin ? 'Complaints Management' : 'My Complaints'}</h1>
-        {!isAdmin && (
-          <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
-            + Raise Complaint
-          </button>
-        )}
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary-container"></div>
       </div>
+    );
+  }
 
-      <RoleGuard allowedRoles={['admin']}>
-        {stats && (
-          <div className="grid grid-cols-4 gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <div className="text-center border-r border-gray-100"><p className="text-xl font-bold text-red-600">{stats.Open}</p><p className="text-xs text-gray-500 font-medium">Open</p></div>
-            <div className="text-center border-r border-gray-100"><p className="text-xl font-bold text-yellow-600">{stats['In Progress']}</p><p className="text-xs text-gray-500 font-medium">In Progress</p></div>
-            <div className="text-center border-r border-gray-100"><p className="text-xl font-bold text-green-600">{stats.Resolved}</p><p className="text-xs text-gray-500 font-medium">Resolved</p></div>
-            <div className="text-center"><p className="text-xl font-bold text-gray-900">{stats.Total}</p><p className="text-xs text-gray-500 font-medium">Total</p></div>
+  // ═══ TENANT VIEW ═══
+  if (!isAdmin) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-h1 font-h1 text-on-background">My Complaints</h2>
+            <p className="text-body-md text-on-surface-variant mt-1">Track your raised issues</p>
           </div>
-        )}
-      </RoleGuard>
+          <button onClick={() => setShowCreateModal(true)} className="bg-secondary-container hover:bg-secondary text-on-primary font-label-md px-4 py-2.5 rounded shadow-sm transition-colors flex items-center gap-2">
+            <span className="material-symbols-outlined text-[20px]">add</span>
+            Raise Complaint
+          </button>
+        </div>
 
-      {complaints.length === 0 ? (
-        <EmptyState icon={FiMessageSquare} title="No complaints" description="There are no complaints to display right now." />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {complaints.map(complaint => (
-            <div key={complaint._id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-              <div className="p-4 flex-1">
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-xs font-bold uppercase text-gray-500 bg-gray-100 px-2 py-1 rounded">{complaint.category}</span>
-                  <span className={`px-2 py-1 text-xs font-bold rounded-full ${complaint.priority === 'Urgent' ? 'bg-red-100 text-red-800' : complaint.priority === 'High' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>
-                    {complaint.priority}
-                  </span>
+        {/* Complaint Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filtered.map((c, i) => (
+            <div key={i} className="bg-surface-container-lowest rounded-lg p-5 border border-outline-variant shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)]">
+              <div className="flex justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge status={c.category || 'other'} label={c.category} />
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-label-sm capitalize ${priorityStyles[c.priority] || priorityStyles.medium}`}>{c.priority}</span>
                 </div>
-                <h3 className="font-bold text-gray-900 text-lg mb-1">{complaint.title}</h3>
-                <p className="text-sm text-gray-600 line-clamp-3 mb-4">{complaint.description}</p>
-                
-                <div className="flex items-center justify-between text-xs text-gray-500 mt-auto">
-                  <span>{new Date(complaint.createdAt).toLocaleDateString()}</span>
-                  <span className={`px-2 py-1 rounded-full font-semibold ${
-                    complaint.status === 'Open' ? 'text-red-700 bg-red-50' :
-                    complaint.status === 'In Progress' ? 'text-yellow-700 bg-yellow-50' :
-                    'text-green-700 bg-green-50'
-                  }`}>
-                    {complaint.status}
-                  </span>
-                </div>
+                <Badge status={c.status} />
               </div>
-              
-              <div className="bg-gray-50 p-3 border-t border-gray-100 flex justify-between items-center">
-                {isAdmin ? (
-                  <select 
-                    className="text-xs border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
-                    value={complaint.status}
-                    onChange={(e) => updateStatus(complaint._id, e.target.value)}
-                  >
-                    <option value="Open">Open</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Resolved">Resolved</option>
-                    <option value="Closed">Closed</option>
-                  </select>
-                ) : (
-                  <div className="text-xs font-medium text-gray-500 flex space-x-3">
-                    {complaint.status === 'Open' && (
-                      <button onClick={() => deleteComplaint(complaint._id)} className="text-red-600 hover:underline">Delete</button>
-                    )}
+
+              <p className="font-label-md text-on-background mt-3">{c.title}</p>
+              <p className="text-body-md text-on-surface-variant line-clamp-2 mt-1">{c.description}</p>
+
+              {c.adminNote && (
+                <div className="mt-3 p-3 bg-surface-container rounded border-l-4 border-primary-container">
+                  <p className="text-body-md text-on-surface-variant"><span className="font-label-md">Admin:</span> {c.adminNote}</p>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center mt-4 border-t border-outline-variant pt-3">
+                <span className="text-[12px] text-on-surface-variant">{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ''}</span>
+                {c.status === 'open' && (
+                  <div className="flex gap-1">
+                    <button onClick={() => { setSelectedComplaint(c); setForm({ category: c.category, title: c.title, description: c.description, priority: c.priority }); setShowCreateModal(true); }} className="p-1.5 rounded text-on-surface-variant hover:text-primary">
+                      <span className="material-symbols-outlined text-[18px]">edit</span>
+                    </button>
+                    <button onClick={() => { setSelectedComplaint(c); setShowDeleteModal(true); }} className="p-1.5 rounded text-on-surface-variant hover:text-error">
+                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
                   </div>
                 )}
               </div>
             </div>
           ))}
         </div>
-      )}
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Raise New Complaint</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
+        {filtered.length === 0 && (
+          <div className="text-center py-12 text-on-surface-variant">
+            <span className="material-symbols-outlined text-[48px] mb-2">sentiment_satisfied</span>
+            <p>No complaints raised yet</p>
+          </div>
+        )}
+
+        {/* Raise Complaint Modal */}
+        <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Raise New Complaint"
+          footer={
+            <>
+              <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 border border-outline-variant rounded text-on-surface font-label-md hover:bg-surface-container-low">Cancel</button>
+              <button onClick={handleCreate} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md">Submit</button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="font-label-md text-on-surface mb-1 block">Category</label>
+              <select value={form.category} onChange={(e) => setForm({...form, category: e.target.value})} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary">
+                {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
+            <FormInput label="Title" value={form.title} onChange={(e) => setForm({...form, title: e.target.value})} placeholder="Brief title for your complaint" />
+            <div>
+              <label className="font-label-md text-on-surface mb-1 block">Description</label>
+              <textarea value={form.description} onChange={(e) => setForm({...form, description: e.target.value})} rows={4} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Describe the issue in detail..." />
+            </div>
+            <div>
+              <label className="font-label-md text-on-surface mb-2 block">Priority</label>
+              <div className="grid grid-cols-3 gap-3">
+                {['low', 'medium', 'high'].map(p => (
+                  <button key={p} onClick={() => setForm({...form, priority: p})}
+                    className={`border rounded-lg p-3 cursor-pointer text-center font-label-md capitalize transition-colors ${
+                      form.priority === p ? 'border-secondary-container bg-[#fff3e0] text-secondary-container' : 'border-outline-variant text-on-surface hover:bg-surface-container-low'
+                    }`}
+                  >{p}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Modal>
+
+        <ConfirmModal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} onConfirm={() => setShowDeleteModal(false)} title="Delete Complaint" message="Are you sure you want to delete this complaint?" />
+      </div>
+    );
+  }
+
+  // ═══ ADMIN VIEW ═══
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-h1 font-h1 text-on-background">Complaints</h2>
+          <p className="text-body-md text-on-surface-variant mt-1">Track and resolve tenant issues</p>
+        </div>
+      </div>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-card-gap mb-8">
+        <StatCard icon="error" iconBg="bg-error-container" value={openCount} label="Open" />
+        <StatCard icon="pending" iconBg="bg-[#fff8e1]" value={inProgressCount} label="In Progress" />
+        <StatCard icon="check_circle" iconBg="bg-primary-container" value={resolvedCount} label="Resolved" />
+        <StatCard icon="list" iconBg="bg-surface-container" value={complaints.length} label="Total" />
+      </div>
+
+      {/* Filter Bar */}
+      <SearchFilterBar
+        searchValue={search}
+        onSearchChange={setSearch}
+        placeholder="Search by tenant or title..."
+        filters={[
+          { type: 'select', value: filterCategory, onChange: setFilterCategory, options: [{ label: 'All Categories', value: 'all' }, ...categories.map(c => ({ label: c.label, value: c.value }))] },
+          { type: 'select', value: filterPriority, onChange: setFilterPriority, options: [{ label: 'All Priorities', value: 'all' }, { label: 'Low', value: 'low' }, { label: 'Medium', value: 'medium' }, { label: 'High', value: 'high' }, { label: 'Urgent', value: 'urgent' }] },
+          { type: 'select', value: filterStatus, onChange: setFilterStatus, options: [{ label: 'All Status', value: 'all' }, { label: 'Open', value: 'open' }, { label: 'In Progress', value: 'in-progress' }, { label: 'Resolved', value: 'resolved' }, { label: 'Closed', value: 'closed' }] },
+        ]}
+      />
+
+      {/* Table */}
+      <DataTable
+        columns={[
+          { header: 'Tenant', render: (row) => (
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-label-md text-sm">
+                {getInitials(row.tenantName)}
+              </div>
+              <span className="font-label-md text-on-surface">{row.tenantName || 'Unknown'}</span>
+            </div>
+          )},
+          { header: 'Room', render: (row) => <span>{row.roomNumber || 'N/A'}</span> },
+          { header: 'Category', render: (row) => <Badge status={row.category || 'other'} label={row.category} /> },
+          { header: 'Title', render: (row) => <span className="font-label-md">{row.title}</span> },
+          { header: 'Priority', render: (row) => (
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-label-sm capitalize ${priorityStyles[row.priority] || priorityStyles.medium}`}>{row.priority}</span>
+          )},
+          { header: 'Status', render: (row) => <Badge status={row.status} /> },
+          { header: 'Date', render: (row) => <span className="text-on-surface-variant">{row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '-'}</span> },
+        ]}
+        data={paged}
+        actions={(row) => (
+          <>
+            <button onClick={() => { setSelectedComplaint(row); setStatusChange(row.status); setAdminNote(row.adminNote || ''); setShowViewModal(true); }} className="p-1.5 rounded text-on-surface-variant hover:text-primary">
+              <span className="material-symbols-outlined text-[20px]">visibility</span>
+            </button>
+            {row.status === 'open' && (
+              <button onClick={() => handleStatusChange(row._id, 'in-progress')} className="p-1.5 rounded text-on-surface-variant hover:text-[#f57f17]" title="Move to In Progress">
+                <span className="material-symbols-outlined text-[20px]">pending</span>
+              </button>
+            )}
+            {row.status === 'in-progress' && (
+              <button onClick={() => handleStatusChange(row._id, 'resolved')} className="p-1.5 rounded text-on-surface-variant hover:text-green-600" title="Mark Resolved">
+                <span className="material-symbols-outlined text-[20px]">check_circle</span>
+              </button>
+            )}
+          </>
+        )}
+        pagination={{
+          currentPage, totalPages, total: filtered.length,
+          start: (currentPage - 1) * perPage + 1,
+          end: Math.min(currentPage * perPage, filtered.length),
+          onPageChange: setCurrentPage,
+        }}
+      />
+
+      {/* View Complaint Modal */}
+      <Modal isOpen={showViewModal} onClose={() => setShowViewModal(false)} title="Complaint Details"
+        footer={
+          <>
+            <button onClick={() => setShowViewModal(false)} className="px-4 py-2 border border-outline-variant rounded text-on-surface font-label-md hover:bg-surface-container-low">Close</button>
+            <button onClick={() => { if (selectedComplaint) handleStatusChange(selectedComplaint._id, statusChange); setShowViewModal(false); }} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md">Save Changes</button>
+          </>
+        }
+      >
+        {selectedComplaint && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Badge status={selectedComplaint.category} label={selectedComplaint.category} />
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-label-sm capitalize ${priorityStyles[selectedComplaint.priority]}`}>{selectedComplaint.priority}</span>
+              <Badge status={selectedComplaint.status} />
+            </div>
+            <h3 className="font-h3 text-on-background">{selectedComplaint.title}</h3>
+            <p className="text-body-md text-on-surface-variant">{selectedComplaint.description}</p>
+            <div className="border-t border-outline-variant pt-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full border-gray-300 rounded-lg shadow-sm p-2 border focus:ring-blue-500">
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Cleanliness">Cleanliness</option>
-                  <option value="Noise">Noise</option>
-                  <option value="Security">Security</option>
-                  <option value="Food">Food</option>
-                  <option value="Other">Other</option>
+                <label className="font-label-md text-on-surface mb-1 block">Change Status</label>
+                <select value={statusChange} onChange={(e) => setStatusChange(e.target.value)} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface">
+                  <option value="open">Open</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="closed">Closed</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full border-gray-300 rounded-lg shadow-sm p-2 border focus:ring-blue-500" placeholder="Brief summary of the issue" />
+                <label className="font-label-md text-on-surface mb-1 block">Admin Notes</label>
+                <textarea value={adminNote} onChange={(e) => setAdminNote(e.target.value)} rows={3} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Add notes for the tenant..." />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea required rows="4" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full border-gray-300 rounded-lg shadow-sm p-2 border focus:ring-blue-500" placeholder="Detailed explanation..."></textarea>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-                <div className="flex space-x-4">
-                  {['Low', 'Medium', 'High'].map(p => (
-                    <label key={p} className="flex items-center text-sm text-gray-700">
-                      <input type="radio" name="priority" value={p} checked={formData.priority === p} onChange={e => setFormData({...formData, priority: e.target.value})} className="mr-2 h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
-                      {p}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="mt-6 flex justify-end space-x-3 pt-4 border-t border-gray-100">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 rounded-lg text-sm font-medium text-white hover:bg-blue-700">Submit</button>
-              </div>
-            </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 };

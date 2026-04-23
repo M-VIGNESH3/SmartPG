@@ -1,0 +1,86 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: smartpg-routes
+  namespace: smartpg-dev
+  labels:
+    project: smartpg
+    environment: development
+spec:
+  parentRefs:
+    - name: smartpg-gateway
+      namespace: smartpg-dev
+  hostnames:
+    - "dev.smartpg.local"
+  rules:
+    # Tenant Service
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/auth
+        - path:
+            type: PathPrefix
+            value: /api/tenants
+        - path:
+            type: PathPrefix
+            value: /api/rooms
+      backendRefs:
+        - name: tenant-service
+          port: 4001
+          weight: 1
+
+    # Payment Service
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/payments
+      backendRefs:
+        - name: payment-service
+          port: 4002
+          weight: 1
+
+    # Mess Service
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/menu
+        - path:
+            type: PathPrefix
+            value: /api/orders
+        - path:
+            type: PathPrefix
+            value: /api/mess
+      backendRefs:
+        - name: mess-service
+          port: 4003
+          weight: 1
+
+    # Complaint Service
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/complaints
+      backendRefs:
+        - name: complaint-service
+          port: 4004
+          weight: 1
+
+    # Notification Service
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/notifications
+      backendRefs:
+        - name: notification-service
+          port: 4005
+          weight: 1
+
+    # Frontend (catch-all, must be LAST)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: frontend
+          port: 80
+          weight: 1

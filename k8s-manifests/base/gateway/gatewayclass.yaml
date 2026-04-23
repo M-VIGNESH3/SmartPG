@@ -1,0 +1,8 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: smartpg-gateway-class
+  labels:
+    project: smartpg
+spec:
+  controllerName: gateway.envoy.io/gatewayclass-controller

@@ -1,189 +1,255 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import LoadingSpinner from '../components/common/LoadingSpinner';
-import RoleGuard from '../components/common/RoleGuard';
-import { toast } from 'react-toastify';
+import Modal from '../components/common/Modal';
+import { messService } from '../services/messService';
+
+const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const defaultMenu = dayNames.map((day, i) => ({
+  day, date: '', breakfast: [], lunch: [], dinner: [], isVeg: true, note: ''
+}));
 
 const MessMenu = () => {
-  const { user, token, isAdmin } = useAuth();
-  const [weeklyMenu, setWeeklyMenu] = useState([]);
+  const { user, isAdmin } = useAuth();
+  const [weeklyMenu, setWeeklyMenu] = useState(defaultMenu);
+  const [mealPrefs, setMealPrefs] = useState({ breakfast: true, lunch: true, dinner: false });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showRateModal, setShowRateModal] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [editForm, setEditForm] = useState({ breakfast: '', lunch: '', dinner: '', isVeg: true, note: '' });
+  const [messRate, setMessRate] = useState(60);
   const [loading, setLoading] = useState(true);
-  const [todayOrders, setTodayOrders] = useState({ breakfast: 0, lunch: 0, dinner: 0 });
-  const [messRate, setMessRate] = useState(50);
-  const [editingDay, setEditingDay] = useState(null);
-  
-  const [formData, setFormData] = useState({
-    breakfast: '',
-    lunch: '',
-    dinner: '',
-    isVeg: true
-  });
 
-  const API_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_MESS_SERVICE_URL || 'http://localhost:4003');
-  const headers = { Authorization: `Bearer ${token}` };
+  const today = new Date().getDay();
 
-  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-  useEffect(() => {
-    fetchData();
-  }, [isAdmin, token]);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     try {
-      const [menuRes, rateRes] = await Promise.all([
-        axios.get(`${API_URL}/api/menu/weekly`, { headers }),
-        axios.get(`${API_URL}/api/mess/rate`, { headers })
-      ]);
-      
-      setWeeklyMenu(menuRes.data);
-      setMessRate(rateRes.data?.ratePerMeal || 50);
-
-      if (isAdmin) {
-        const statsRes = await axios.get(`${API_URL}/api/orders/today/stats`, { headers });
-        setTodayOrders(statsRes.data);
+      const menu = await messService.getWeeklyMenu().catch(() => null);
+      if (menu && Array.isArray(menu)) {
+        setWeeklyMenu(menu.length > 0 ? menu : defaultMenu);
       }
-    } catch (error) {
-      toast.error('Failed to load mess data');
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
-  const handleEditClick = (dayName) => {
-    const existing = weeklyMenu.find(m => m.dayOfWeek === dayName);
-    if (existing) {
-      setFormData({ breakfast: existing.breakfast, lunch: existing.lunch, dinner: existing.dinner, isVeg: existing.isVeg });
-      setEditingDay({ ...existing, isNew: false });
-    } else {
-      setFormData({ breakfast: '', lunch: '', dinner: '', isVeg: true });
-      setEditingDay({ dayOfWeek: dayName, isNew: true });
-    }
-  };
-
-  const handleSaveMenu = async () => {
+  const saveMealPrefs = async () => {
     try {
-      if (editingDay.isNew) {
-        await axios.post(`${API_URL}/api/menu`, { ...formData, dayOfWeek: editingDay.dayOfWeek }, { headers });
-      } else {
-        await axios.put(`${API_URL}/api/menu/${editingDay._id}`, formData, { headers });
+      const selectedMeals = Object.entries(mealPrefs).filter(([, v]) => v).map(([k]) => k);
+      for (const meal of selectedMeals) {
+        await messService.optIn({ tenantId: user?.id, date: new Date().toISOString().split('T')[0], mealType: meal }).catch(() => {});
       }
-      toast.success('Menu saved successfully');
-      setEditingDay(null);
-      fetchData();
-    } catch (error) {
-      toast.error('Failed to save menu');
-    }
+    } catch (err) { console.error(err); }
   };
 
-  const updateRate = async () => {
-    const newRate = prompt('Enter new mess rate per meal:', messRate);
-    if (newRate && !isNaN(newRate)) {
-      try {
-        await axios.put(`${API_URL}/api/mess/rate`, { ratePerMeal: Number(newRate) }, { headers });
-        toast.success('Mess rate updated');
-        setMessRate(Number(newRate));
-      } catch (e) {
-        toast.error('Failed to update rate');
-      }
-    }
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary-container"></div>
+      </div>
+    );
+  }
 
-  const optIn = async (mealType) => {
-    try {
-      await axios.post(`${API_URL}/api/orders/opt-in`, { tenantId: user.id, date: new Date(), mealType, cost: messRate }, { headers });
-      toast.success(`Opted in for ${mealType}`);
-    } catch (e) {
-      toast.error('Failed to opt in');
-    }
-  };
-
-  const optOut = async (mealType) => {
-    try {
-      await axios.post(`${API_URL}/api/orders/opt-out`, { tenantId: user.id, date: new Date(), mealType }, { headers });
-      toast.success(`Opted out of ${mealType}`);
-    } catch (e) {
-      toast.error('Failed to opt out');
-    }
-  };
-
-  if (loading) return <LoadingSpinner />;
-
-  const currentDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Weekly Mess Menu</h1>
-        <RoleGuard allowedRoles={['admin']}>
-          <button onClick={updateRate} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
-            Set Rate (₹{messRate}/meal)
+  // ═══ ADMIN VIEW ═══
+  if (isAdmin) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-h1 font-h1 text-on-background">Mess Menu</h2>
+            <p className="text-body-md text-on-surface-variant mt-1">Manage weekly meal menu</p>
+          </div>
+          <button onClick={() => { setSelectedDay(weeklyMenu[0]); setShowEditModal(true); }} className="bg-secondary-container hover:bg-secondary text-on-primary font-label-md px-4 py-2.5 rounded shadow-sm transition-colors flex items-center gap-2">
+            <span className="material-symbols-outlined text-[20px]">add</span>
+            Add Menu
           </button>
-        </RoleGuard>
+        </div>
+
+        {/* Mess Rate Setting */}
+        <div className="bg-surface-container-lowest rounded-lg p-4 mb-6 border border-outline-variant shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)] flex items-center justify-between">
+          <div>
+            <p className="font-label-md text-on-surface-variant">Mess Rate</p>
+            <p className="font-h3 text-primary">₹{messRate} per meal</p>
+          </div>
+          <button onClick={() => setShowRateModal(true)} className="px-4 py-2 border border-outline-variant rounded-md text-on-surface font-label-md hover:bg-surface-container-low transition-colors">
+            Edit Rate
+          </button>
+        </div>
+
+        {/* Today's Opt-in Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {['Breakfast', 'Lunch', 'Dinner'].map((meal) => (
+            <div key={meal} className="bg-surface-container-lowest rounded-lg p-4 border border-outline-variant shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)] text-center">
+              <span className="material-symbols-outlined text-[24px] text-secondary-container">{meal === 'Breakfast' ? 'egg_alt' : meal === 'Lunch' ? 'lunch_dining' : 'dinner_dining'}</span>
+              <p className="font-h3 text-on-background mt-2">0</p>
+              <p className="text-body-md text-on-surface-variant">tenants opted for {meal}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Weekly Menu Calendar */}
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+          {weeklyMenu.map((day, idx) => {
+            const isToday = idx === today;
+            return (
+              <div key={idx} className={`bg-surface-container-lowest rounded-lg p-4 border ${isToday ? 'border-secondary-container border-2' : 'border-outline-variant'} shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)]`}>
+                <p className="font-label-md text-on-surface">{dayNames[idx]}</p>
+                <p className="text-[12px] text-on-surface-variant mb-3">{day.date || ''}</p>
+
+                {/* Meals */}
+                {['breakfast', 'lunch', 'dinner'].map((mealType) => (
+                  <div key={mealType} className="mb-2">
+                    <p className="text-[11px] font-label-sm text-on-surface-variant uppercase mb-1">{mealType}</p>
+                    <div className="flex flex-wrap gap-1">
+                      {(day[mealType] || []).length > 0 ? (
+                        day[mealType].map((item, i) => (
+                          <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant">{item}</span>
+                        ))
+                      ) : (
+                        <span className="text-[11px] text-on-surface-variant italic">Not set</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {day.isVeg && (
+                  <div className="flex items-center gap-1 mt-2">
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    <span className="text-[11px] text-green-700">Veg</span>
+                  </div>
+                )}
+
+                <button onClick={() => { setSelectedDay(day); setEditForm({ breakfast: (day.breakfast || []).join(', '), lunch: (day.lunch || []).join(', '), dinner: (day.dinner || []).join(', '), isVeg: day.isVeg, note: day.note || '' }); setShowEditModal(true); }} className="text-secondary-container font-label-md hover:underline mt-2 text-[12px]">
+                  Edit
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Edit Menu Modal */}
+        <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title={`Edit Menu — ${selectedDay?.day || ''}`}
+          footer={
+            <>
+              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 border border-outline-variant rounded text-on-surface font-label-md hover:bg-surface-container-low">Cancel</button>
+              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md">Save Menu</button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="font-label-md text-on-surface mb-1 block">Breakfast Items (comma separated)</label>
+              <input type="text" value={editForm.breakfast} onChange={(e) => setEditForm({...editForm, breakfast: e.target.value})} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Idli, Dosa, Chutney" />
+            </div>
+            <div>
+              <label className="font-label-md text-on-surface mb-1 block">Lunch Items</label>
+              <input type="text" value={editForm.lunch} onChange={(e) => setEditForm({...editForm, lunch: e.target.value})} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Rice, Dal, Sabji" />
+            </div>
+            <div>
+              <label className="font-label-md text-on-surface mb-1 block">Dinner Items</label>
+              <input type="text" value={editForm.dinner} onChange={(e) => setEditForm({...editForm, dinner: e.target.value})} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Roti, Curry, Salad" />
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="font-label-md text-on-surface">Veg/Non-veg</label>
+              <button onClick={() => setEditForm({...editForm, isVeg: !editForm.isVeg})} className={`w-12 h-6 rounded-full cursor-pointer transition-colors duration-200 relative ${editForm.isVeg ? 'bg-green-500' : 'bg-red-400'}`}>
+                <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform duration-200 shadow ${editForm.isVeg ? 'translate-x-6' : 'translate-x-1'}`}></div>
+              </button>
+              <span className="text-body-md">{editForm.isVeg ? 'Veg' : 'Non-Veg'}</span>
+            </div>
+            <div>
+              <label className="font-label-md text-on-surface mb-1 block">Special Note</label>
+              <textarea value={editForm.note} onChange={(e) => setEditForm({...editForm, note: e.target.value})} rows={2} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Any special notes..." />
+            </div>
+          </div>
+        </Modal>
+
+        {/* Edit Rate Modal */}
+        <Modal isOpen={showRateModal} onClose={() => setShowRateModal(false)} title="Edit Mess Rate"
+          footer={
+            <>
+              <button onClick={() => setShowRateModal(false)} className="px-4 py-2 border border-outline-variant rounded text-on-surface font-label-md hover:bg-surface-container-low">Cancel</button>
+              <button onClick={() => setShowRateModal(false)} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md">Save</button>
+            </>
+          }
+        >
+          <div>
+            <label className="font-label-md text-on-surface mb-1 block">Rate per Meal (₹)</label>
+            <input type="number" value={messRate} onChange={(e) => setMessRate(Number(e.target.value))} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+        </Modal>
+      </div>
+    );
+  }
+
+  // ═══ TENANT VIEW ═══
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-h1 font-h1 text-on-background">Mess Menu</h2>
+          <p className="text-body-md text-on-surface-variant mt-1">Weekly menu and meal preferences</p>
+        </div>
       </div>
 
-      <RoleGuard allowedRoles={['admin']}>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex space-x-6">
-          <div>
-            <p className="text-sm text-gray-500 font-medium">Today's Opt-ins</p>
-          </div>
-          <div className="flex space-x-4 font-bold text-gray-900">
-            <span className="text-orange-500">Breakfast: {todayOrders.breakfast}</span>
-            <span className="text-blue-500">Lunch: {todayOrders.lunch}</span>
-            <span className="text-purple-500">Dinner: {todayOrders.dinner}</span>
-          </div>
+      {/* Today's Meal Opt-in */}
+      <div className="bg-primary-container rounded-lg p-6 mb-6">
+        <h3 className="font-h3 text-on-primary-container">Today's Meals</h3>
+        <p className="text-body-md text-on-primary-container/70 mb-4">Set your meal preferences for today</p>
+
+        <div className="space-y-0">
+          {[
+            { emoji: '🍳', label: 'Breakfast', key: 'breakfast' },
+            { emoji: '🍱', label: 'Lunch', key: 'lunch' },
+            { emoji: '🍽️', label: 'Dinner', key: 'dinner' },
+          ].map((meal, idx) => (
+            <div key={meal.key} className={`flex justify-between items-center py-3 ${idx < 2 ? 'border-b border-on-primary-container/20' : ''}`}>
+              <span className="font-label-md text-on-primary-container">{meal.emoji} {meal.label}</span>
+              <button
+                onClick={() => setMealPrefs(prev => ({ ...prev, [meal.key]: !prev[meal.key] }))}
+                className={`w-12 h-6 rounded-full cursor-pointer transition-colors duration-200 relative ${
+                  mealPrefs[meal.key] ? 'bg-secondary-container' : 'bg-outline-variant'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform duration-200 shadow ${
+                  mealPrefs[meal.key] ? 'translate-x-6' : 'translate-x-1'
+                }`}></div>
+              </button>
+            </div>
+          ))}
         </div>
-      </RoleGuard>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {daysOfWeek.map(day => {
-          const menu = weeklyMenu.find(m => m.dayOfWeek === day);
-          const isToday = day === currentDayName;
+        <button onClick={saveMealPrefs} className="w-full mt-4 bg-secondary-container text-on-primary py-2.5 rounded font-label-md hover:bg-secondary transition-colors">
+          Save Preferences
+        </button>
+      </div>
 
+      {/* Weekly Menu (read only) */}
+      <h3 className="font-h3 text-on-background mb-4">This Week's Menu</h3>
+      <div className="grid grid-cols-1 md:grid-cols-7 gap-3 mb-6">
+        {weeklyMenu.map((day, idx) => {
+          const isToday = idx === today;
           return (
-            <div key={day} className={`bg-white rounded-lg shadow-sm border ${isToday ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'} overflow-hidden flex flex-col`}>
-              <div className={`px-4 py-3 border-b border-gray-100 flex justify-between items-center ${isToday ? 'bg-blue-50' : 'bg-gray-50'}`}>
-                <h3 className={`font-bold ${isToday ? 'text-blue-700' : 'text-gray-900'}`}>{day} {isToday && '(Today)'}</h3>
-                {menu && <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${menu.isVeg ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{menu.isVeg ? 'VEG' : 'NON-VEG'}</span>}
-              </div>
-              
-              <div className="p-4 space-y-4 flex-1">
-                {menu ? (
-                  <>
-                    <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Breakfast</p>
-                      <p className="text-sm text-gray-900">{menu.breakfast}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Lunch</p>
-                      <p className="text-sm text-gray-900">{menu.lunch}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Dinner</p>
-                      <p className="text-sm text-gray-900">{menu.dinner}</p>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-sm text-gray-400 italic text-center py-8">Menu not set</p>
-                )}
-              </div>
-
-              <RoleGuard allowedRoles={['admin']}>
-                <div className="p-3 bg-gray-50 border-t border-gray-100">
-                  <button 
-                    onClick={() => handleEditClick(day)}
-                    className="w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
-                  >
-                    Edit Menu
-                  </button>
+            <div key={idx} className={`bg-surface-container-lowest rounded-lg p-4 border ${isToday ? 'border-secondary-container border-2' : 'border-outline-variant'}`}>
+              <p className="font-label-md text-on-surface">{dayNames[idx]}</p>
+              <p className="text-[12px] text-on-surface-variant mb-3">{day.date || ''}</p>
+              {['breakfast', 'lunch', 'dinner'].map((mealType) => (
+                <div key={mealType} className="mb-2">
+                  <p className="text-[11px] font-label-sm text-on-surface-variant uppercase mb-1">{mealType}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {(day[mealType] || []).length > 0 ? (
+                      day[mealType].map((item, i) => (
+                        <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant">{item}</span>
+                      ))
+                    ) : (
+                      <span className="text-[11px] text-on-surface-variant italic">Not set</span>
+                    )}
+                  </div>
                 </div>
-              </RoleGuard>
-
-              {!isAdmin && isToday && (
-                <div className="p-3 bg-blue-50 border-t border-blue-100 grid grid-cols-3 gap-2">
-                  <button onClick={() => optIn('breakfast')} className="text-xs bg-white border border-blue-300 text-blue-700 py-1.5 rounded hover:bg-blue-600 hover:text-white transition-colors">B'fast</button>
-                  <button onClick={() => optIn('lunch')} className="text-xs bg-white border border-blue-300 text-blue-700 py-1.5 rounded hover:bg-blue-600 hover:text-white transition-colors">Lunch</button>
-                  <button onClick={() => optIn('dinner')} className="text-xs bg-white border border-blue-300 text-blue-700 py-1.5 rounded hover:bg-blue-600 hover:text-white transition-colors">Dinner</button>
+              ))}
+              {day.isVeg && (
+                <div className="flex items-center gap-1 mt-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                  <span className="text-[11px] text-green-700">Veg</span>
                 </div>
               )}
             </div>
@@ -191,35 +257,24 @@ const MessMenu = () => {
         })}
       </div>
 
-      {editingDay && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Edit Menu for {editingDay.dayOfWeek}</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Breakfast Items</label>
-                <input type="text" value={formData.breakfast} onChange={e => setFormData({...formData, breakfast: e.target.value})} className="w-full border-gray-300 rounded-lg shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., Poha, Tea, Toast" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Lunch Items</label>
-                <input type="text" value={formData.lunch} onChange={e => setFormData({...formData, lunch: e.target.value})} className="w-full border-gray-300 rounded-lg shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., Rice, Dal, Roti, Sabzi" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Dinner Items</label>
-                <input type="text" value={formData.dinner} onChange={e => setFormData({...formData, dinner: e.target.value})} className="w-full border-gray-300 rounded-lg shadow-sm p-2 border focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., Chapati, Paneer, Salad" />
-              </div>
-              <div className="flex items-center space-x-3 mt-4">
-                <input type="checkbox" id="isVeg" checked={formData.isVeg} onChange={e => setFormData({...formData, isVeg: e.target.checked})} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
-                <label htmlFor="isVeg" className="text-sm text-gray-700">Pure Vegetarian Menu</label>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end space-x-3">
-              <button onClick={() => setEditingDay(null)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-              <button onClick={handleSaveMenu} className="px-4 py-2 bg-blue-600 rounded-lg text-sm font-medium text-white hover:bg-blue-700">Save Menu</button>
-            </div>
+      {/* My Mess Bill */}
+      <div className="bg-surface-container-lowest rounded-lg p-6 border border-outline-variant shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <h3 className="font-h3 text-on-background mb-4">My Mess Bill — {new Date().toLocaleString('default', { month: 'long' })}</h3>
+        <div className="grid grid-cols-3 gap-4 mb-4 text-center">
+          <div className="p-3 bg-surface-container rounded-lg">
+            <p className="font-h3 text-on-background">0</p>
+            <p className="text-body-md text-on-surface-variant">Total Meals</p>
+          </div>
+          <div className="p-3 bg-surface-container rounded-lg">
+            <p className="font-h3 text-primary">₹{messRate}</p>
+            <p className="text-body-md text-on-surface-variant">Rate/Meal</p>
+          </div>
+          <div className="p-3 bg-surface-container rounded-lg">
+            <p className="font-h3 text-secondary-container">₹0</p>
+            <p className="text-body-md text-on-surface-variant">Total</p>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
