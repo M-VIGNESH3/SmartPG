@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smartpg-config
+  namespace: smartpg-prod
+data:
+  NODE_ENV: production
+  FRONTEND_URL: "http://frontend:80"
+  VITE_TENANT_SERVICE_URL: "http://tenant-service:4001"
+  VITE_PAYMENT_SERVICE_URL: "http://payment-service:4002"
+  VITE_MESS_SERVICE_URL: "http://mess-service:4003"
+  VITE_COMPLAINT_SERVICE_URL: "http://complaint-service:4004"
+  VITE_NOTIFICATION_SERVICE_URL: "http://notification-service:4005"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:4005"
+  TENANT_SERVICE_URL: "http://tenant-service:4001"
+  PAYMENT_SERVICE_URL: "http://payment-service:4002"
+  MESS_SERVICE_URL: "http://mess-service:4003"
+  COMPLAINT_SERVICE_URL: "http://complaint-service:4004"

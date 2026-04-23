@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: smartpg-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  tenant-service:
+    build: 
+      context: ./src/tenant-service
+      dockerfile: Dockerfile
+    container_name: smartpg-tenant-service
+    ports:
+      - "4001:4001"
+    environment:
+      - PORT=4001
+      - MONGO_URI=mongodb://admin:password@mongodb:27017/smartpg_db?authSource=admin
+      - JWT_SECRET=local-dev-secret
+      - NODE_ENV=development
+      - NOTIFICATION_SERVICE_URL=http://notification-service:4005
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  payment-service:
+    build: 
+      context: ./src/payment-service
+      dockerfile: Dockerfile
+    container_name: smartpg-payment-service
+    ports:
+      - "4002:4002"
+    environment:
+      - PORT=4002
+      - MONGO_URI=mongodb://admin:password@mongodb:27017/smartpg_db?authSource=admin
+      - JWT_SECRET=local-dev-secret
+      - NODE_ENV=development
+      - NOTIFICATION_SERVICE_URL=http://notification-service:4005
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  mess-service:
+    build: 
+      context: ./src/mess-service
+      dockerfile: Dockerfile
+    container_name: smartpg-mess-service
+    ports:
+      - "4003:4003"
+    environment:
+      - PORT=4003
+      - MONGO_URI=mongodb://admin:password@mongodb:27017/smartpg_db?authSource=admin
+      - JWT_SECRET=local-dev-secret
+      - NODE_ENV=development
+      - NOTIFICATION_SERVICE_URL=http://notification-service:4005
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  complaint-service:
+    build: 
+      context: ./src/complaint-service
+      dockerfile: Dockerfile
+    container_name: smartpg-complaint-service
+    ports:
+      - "4004:4004"
+    environment:
+      - PORT=4004
+      - MONGO_URI=mongodb://admin:password@mongodb:27017/smartpg_db?authSource=admin
+      - JWT_SECRET=local-dev-secret
+      - NODE_ENV=development
+      - NOTIFICATION_SERVICE_URL=http://notification-service:4005
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  notification-service:
+    build: 
+      context: ./src/notification-service
+      dockerfile: Dockerfile
+    container_name: smartpg-notification-service
+    ports:
+      - "4005:4005"
+    environment:
+      - PORT=4005
+      - MONGO_URI=mongodb://admin:password@mongodb:27017/smartpg_db?authSource=admin
+      - JWT_SECRET=local-dev-secret
+      - NODE_ENV=development
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: smartpg-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - tenant-service
+      - payment-service
+      - mess-service
+      - complaint-service
+      - notification-service
+
+volumes:
+  mongodb_data:

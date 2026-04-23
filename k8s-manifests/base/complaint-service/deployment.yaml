@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: complaint-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: complaint-service
+  template:
+    metadata:
+      labels:
+        app: complaint-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+      containers:
+        - name: complaint-service
+          image: ghcr.io/youruser/smartpg-complaint-service:latest
+          ports:
+            - containerPort: 4004
+          envFrom:
+            - configMapRef:
+                name: smartpg-config
+          env:
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: smartpg-secrets
+                  key: MONGO_URI
+                  optional: true
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: smartpg-secrets
+                  key: JWT_SECRET
+                  optional: true
+            - name: PORT
+              value: "4004"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4004
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 4004
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
