@@ -23,3 +23,5 @@ complaintService:
 notificationService:
   image:
     tag: v1.0.0
+secrets:
+  jwtSecret: secret123  # Replace with the key you used previously
