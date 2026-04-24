@@ -6,7 +6,8 @@ const {
   allocateRoom,
   createRoom,
   updateRoom,
-  releaseRoom
+  releaseRoom,
+  getRoomById
 } = require('../controllers/roomController');
 const { verifyToken, isAdmin } = require('../middleware/auth');
 
@@ -17,6 +18,7 @@ router.route('/')
 router.get('/available', verifyToken, isAdmin, getAvailableRooms);
 router.post('/allocate', verifyToken, isAdmin, allocateRoom);
 
+router.get('/:id', verifyToken, getRoomById);
 router.put('/:id', verifyToken, isAdmin, updateRoom);
 router.put('/:id/release', verifyToken, isAdmin, releaseRoom);
 

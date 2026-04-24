@@ -89,6 +89,12 @@ export const tenantService = {
     return response.data;
   },
 
+  getRoomById: async (id) => {
+    if (!id) return null;
+    const response = await axios.get(`${API_URL}/api/rooms/${id}`, { headers: getAuthHeader() });
+    return response.data;
+  },
+
   getAvailableRooms: async () => {
     const response = await axios.get(`${API_URL}/api/rooms/available`, { headers: getAuthHeader() });
     return response.data;

@@ -9,6 +9,7 @@ const getAuthHeader = () => {
 
 export const paymentService = {
   getPaymentsByTenant: async (tenantId) => {
+    if (!tenantId || tenantId === 'undefined') return [];
     const response = await axios.get(`${API_URL}/api/payments/tenant/${tenantId}`, { headers: getAuthHeader() });
     return response.data;
   },

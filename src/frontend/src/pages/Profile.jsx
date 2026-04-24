@@ -24,14 +24,12 @@ const Profile = () => {
 
   const fetchData = async () => {
     try {
-      const [rooms, payments, complaints] = await Promise.all([
-        tenantService.getRooms().catch(() => []),
+      const [roomData, payments, complaints] = await Promise.all([
+        user?.roomId ? tenantService.getRoomById(user.roomId).catch(() => null) : Promise.resolve(null),
         paymentService.getPaymentsByTenant(user?.id).catch(() => []),
         complaintService.getComplaintsByTenant(user?.id).catch(() => []),
       ]);
-      const roomList = Array.isArray(rooms) ? rooms : [];
-      const myRoom = roomList.find(r => r.tenantId === user?.id || r.tenant === user?.id);
-      setRoom(myRoom || null);
+      setRoom(roomData || null);
       setPaymentCount(Array.isArray(payments) ? payments.length : 0);
       setComplaintCount(Array.isArray(complaints) ? complaints.length : 0);
     } catch (err) { console.error(err); }

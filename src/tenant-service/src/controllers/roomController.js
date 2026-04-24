@@ -19,6 +19,22 @@ exports.getAvailableRooms = async (req, res) => {
   }
 };
 
+exports.getRoomById = async (req, res) => {
+  try {
+    const room = await Room.findById(req.params.id).populate('occupants', 'name email');
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+    
+    // Check if user is admin or occupies this room
+    if (req.user.role !== 'admin' && !room.occupants.some(occ => occ._id.toString() === req.user.id)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    res.json(room);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 exports.createRoom = async (req, res) => {
   try {
     const room = await Room.create(req.body);

@@ -23,11 +23,11 @@ const Dashboard = () => {
       const [payData, complaintData, roomData] = await Promise.all([
         paymentService.getPaymentsByTenant(user?.id).catch(() => []),
         complaintService.getComplaintsByTenant(user?.id).catch(() => []),
-        tenantService.getRooms().catch(() => []),
+        user?.roomId ? tenantService.getRoomById(user.roomId).catch(() => null) : Promise.resolve(null),
       ]);
       setPayments(Array.isArray(payData) ? payData : []);
       setComplaints(Array.isArray(complaintData) ? complaintData : []);
-      setRooms(Array.isArray(roomData) ? roomData : []);
+      setRooms(roomData ? [roomData] : []);
     } catch (err) {
       console.error('Dashboard fetch:', err);
     } finally {

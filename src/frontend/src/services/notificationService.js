@@ -9,11 +9,13 @@ const getAuthHeader = () => {
 
 export const notificationService = {
   getNotifications: async (tenantId) => {
+    if (!tenantId || tenantId === 'undefined') return [];
     const response = await axios.get(`${API_URL}/api/notifications/${tenantId}`, { headers: getAuthHeader() });
     return response.data;
   },
 
   getUnreadCount: async (tenantId) => {
+    if (!tenantId || tenantId === 'undefined') return { count: 0 };
     const response = await axios.get(`${API_URL}/api/notifications/count/${tenantId}`, { headers: getAuthHeader() });
     return response.data;
   },

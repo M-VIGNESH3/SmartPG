@@ -14,6 +14,7 @@ export const complaintService = {
   },
 
   getComplaintsByTenant: async (tenantId) => {
+    if (!tenantId || tenantId === 'undefined') return [];
     const response = await axios.get(`${API_URL}/api/complaints/tenant/${tenantId}`, { headers: getAuthHeader() });
     return response.data;
   },
