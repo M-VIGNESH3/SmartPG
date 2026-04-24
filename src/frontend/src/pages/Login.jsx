@@ -74,143 +74,170 @@ const Login = () => {
   const errorStyle = getErrorStyle();
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md border border-outline-variant">
-        {/* Logo area */}
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center mx-auto mb-4">
-            <span className="material-symbols-outlined text-on-primary-container text-[28px]">apartment</span>
-          </div>
-          <h1 className="text-h2 font-h2 text-on-background">SmartPG</h1>
-          <p className="text-body-md text-on-surface-variant mt-1">Paying Guest Management System</p>
-        </div>
-
-        {/* Error message */}
-        {error && (
-          <div className={`mb-5 p-4 ${errorStyle.bg} border ${errorStyle.border} rounded-lg flex items-start gap-3`}>
-            <span
-              className={`material-symbols-outlined ${errorStyle.iconColor} flex-shrink-0`}
-              style={{ fontSize: '18px' }}
-            >
-              {errorStyle.icon}
-            </span>
-            <div>
-              <p className={`text-[14px] font-medium ${errorStyle.text}`}>
-                {error.message}
-              </p>
-              {error.type === 'ACCOUNT_PENDING' && (
-                <p className="text-[12px] text-[#f57f17] mt-1">
-                  Your account is under review. Contact your PG admin for faster approval.
-                </p>
-              )}
-              {error.type === 'ACCOUNT_REJECTED' && (
-                <p className="text-[12px] text-on-error-container mt-1">
-                  You can{' '}
-                  <Link to="/register" className="underline font-semibold">
-                    register again
-                  </Link>{' '}
-                  or contact admin directly.
-                </p>
-              )}
+    <div className="min-h-screen bg-background flex">
+      {/* Left side: Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-12">
+        <div className="w-full max-w-md">
+          {/* Logo area */}
+          <div className="text-center mb-10">
+            <div className="w-16 h-16 rounded-2xl bg-primary-container flex items-center justify-center mx-auto mb-5 shadow-sm">
+              <span className="material-symbols-outlined text-on-primary-container text-[36px]">apartment</span>
             </div>
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="font-label-md text-on-surface mb-1 block">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); if (error) setError(null); }}
-              placeholder="Enter your email"
-              required
-              className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            />
+            <h1 className="text-h1 font-h1 text-on-background">Welcome Back</h1>
+            <p className="text-body-md text-on-surface-variant mt-2">Sign in to your SmartPG account</p>
           </div>
 
-          <div className="mb-4">
-            <label className="font-label-md text-on-surface mb-1 block">Password</label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); if (error) setError(null); }}
-                placeholder="Enter your password"
-                required
-                className="w-full px-3 py-2 pr-10 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface"
+          {/* Error message */}
+          {error && (
+            <div className={`mb-6 p-4 ${errorStyle.bg} border ${errorStyle.border} rounded-lg flex items-start gap-3`}>
+              <span
+                className={`material-symbols-outlined ${errorStyle.iconColor} flex-shrink-0`}
+                style={{ fontSize: '18px' }}
               >
-                <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
-              </button>
+                {errorStyle.icon}
+              </span>
+              <div>
+                <p className={`text-[14px] font-medium ${errorStyle.text}`}>
+                  {error.message}
+                </p>
+                {error.type === 'ACCOUNT_PENDING' && (
+                  <p className="text-[12px] text-[#f57f17] mt-1">
+                    Your account is under review. Contact your PG admin for faster approval.
+                  </p>
+                )}
+                {error.type === 'ACCOUNT_REJECTED' && (
+                  <p className="text-[12px] text-on-error-container mt-1">
+                    You can{' '}
+                    <Link to="/register" className="underline font-semibold">
+                      register again
+                    </Link>{' '}
+                    or contact admin directly.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="font-label-md text-on-surface mb-1.5 block">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); if (error) setError(null); }}
+                placeholder="Enter your email"
+                required
+                className="w-full px-4 py-3 border border-outline-variant rounded-lg font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-shadow shadow-sm"
+              />
+            </div>
+
+            <div>
+              <label className="font-label-md text-on-surface mb-1.5 block">Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); if (error) setError(null); }}
+                  placeholder="Enter your password"
+                  required
+                  className="w-full px-4 py-3 pr-12 border border-outline-variant rounded-lg font-body-md text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-shadow shadow-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-secondary-container hover:bg-secondary text-on-primary font-label-md py-3.5 rounded-lg transition-colors mt-2 disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>login</span>
+                  Sign In
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Demo credentials */}
+          <div className="mt-8 p-5 bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="material-symbols-outlined text-[18px] text-secondary-container">key</span>
+              <span className="font-label-md text-on-surface">Demo Credentials</span>
+            </div>
+
+            <div className="py-2 border-b border-outline-variant flex justify-between items-center cursor-pointer hover:bg-surface-container rounded px-3 -mx-3 transition-colors" onClick={() => fillDemo('admin@smartpg.com', 'Admin@123')}>
+              <span className="bg-primary-container text-on-primary-container px-2 py-1 rounded text-[12px] font-label-sm font-semibold">Admin</span>
+              <div className="text-right">
+                <p className="font-label-sm text-on-surface">admin@smartpg.com</p>
+                <p className="text-[12px] text-on-surface-variant">Admin@123</p>
+              </div>
+            </div>
+
+            <div className="py-2 flex justify-between items-center cursor-pointer hover:bg-surface-container rounded px-3 -mx-3 transition-colors mt-2" onClick={() => fillDemo('rahul@smartpg.com', 'Tenant@123')}>
+              <span className="bg-primary-container text-on-primary-container px-2 py-1 rounded text-[12px] font-label-sm font-semibold">Tenant</span>
+              <div className="text-right">
+                <p className="font-label-sm text-on-surface">rahul@smartpg.com</p>
+                <p className="text-[12px] text-on-surface-variant">Tenant@123</p>
+              </div>
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-secondary-container hover:bg-secondary text-on-primary font-label-md py-3 rounded-md transition-colors mt-6 disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Signing in...
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>login</span>
-                Sign In
-              </>
-            )}
-          </button>
-        </form>
+          {/* Register Link */}
+          <p className="text-center mt-8 text-body-md text-on-surface-variant">
+            New tenant?{' '}
+            <Link
+              to="/register"
+              className="text-secondary-container font-semibold hover:underline"
+            >
+              Request Access →
+            </Link>
+          </p>
+        </div>
+      </div>
 
-        {/* Demo credentials */}
-        <div className="mt-6 p-4 bg-surface-container-low rounded-lg border border-outline-variant">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="material-symbols-outlined text-[16px] text-secondary-container">key</span>
-            <span className="font-label-md text-on-surface">Demo Credentials</span>
+      {/* Right side: Image/Branding area (Hidden on mobile) */}
+      <div className="hidden lg:flex w-1/2 bg-secondary-container relative items-center justify-center overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-secondary-container to-[#1a3250] opacity-90"></div>
+        
+        {/* Glassmorphism content box */}
+        <div className="relative z-10 p-12 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-2xl max-w-lg text-white">
+          <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mb-6 backdrop-blur-sm border border-white/30">
+            <span className="material-symbols-outlined text-[36px] text-white">domain</span>
           </div>
-
-          <div className="py-2 border-b border-outline-variant flex justify-between items-center cursor-pointer hover:bg-surface-container rounded px-2 -mx-2 transition-colors" onClick={() => fillDemo('admin@smartpg.com', 'Admin@123')}>
-            <span className="bg-primary-container text-on-primary-container px-2 py-0.5 rounded text-[11px] font-label-sm">Admin</span>
-            <div className="text-right">
-              <p className="font-label-sm text-on-surface">admin@smartpg.com</p>
-              <p className="text-[11px] text-on-surface-variant">Admin@123</p>
+          <h2 className="text-4xl font-bold mb-4 leading-tight">Digital PG Management System</h2>
+          <p className="text-white/80 text-lg leading-relaxed mb-8">
+            Experience a seamless, transparent, and hassle-free way to manage your PG accommodation. SmartPG handles your rent, complaints, and mess menu in one place.
+          </p>
+          <div className="flex gap-4">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#81c784]">check_circle</span>
+              <span className="font-medium text-white/90">Smart Payments</span>
             </div>
-          </div>
-
-          <div className="py-2 flex justify-between items-center cursor-pointer hover:bg-surface-container rounded px-2 -mx-2 transition-colors mt-1" onClick={() => fillDemo('rahul@smartpg.com', 'Tenant@123')}>
-            <span className="bg-primary-container text-on-primary-container px-2 py-0.5 rounded text-[11px] font-label-sm">Tenant</span>
-            <div className="text-right">
-              <p className="font-label-sm text-on-surface">rahul@smartpg.com</p>
-              <p className="text-[11px] text-on-surface-variant">Tenant@123</p>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#81c784]">check_circle</span>
+              <span className="font-medium text-white/90">Instant Updates</span>
             </div>
           </div>
         </div>
-
-        {/* Divider */}
-        <div className="flex items-center gap-3 mt-6">
-          <hr className="flex-1 border-outline-variant" />
-          <span className="text-[12px] text-on-surface-variant">OR</span>
-          <hr className="flex-1 border-outline-variant" />
-        </div>
-
-        {/* Register Link */}
-        <p className="text-center mt-4 text-body-md text-on-surface-variant">
-          New tenant?{' '}
-          <Link
-            to="/register"
-            className="text-secondary-container font-semibold hover:underline"
-          >
-            Request Access →
-          </Link>
-        </p>
+        
+        {/* Abstract shapes */}
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-primary/20 rounded-full blur-3xl"></div>
       </div>
     </div>
   );

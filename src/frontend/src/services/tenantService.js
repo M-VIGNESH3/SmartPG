@@ -109,8 +109,8 @@ export const tenantService = {
     return response.data;
   },
 
-  releaseRoom: async (roomId) => {
-    const response = await axios.put(`${API_URL}/api/rooms/${roomId}/release`, {}, { headers: getAuthHeader() });
+  releaseRoom: async (roomId, tenantId) => {
+    const response = await axios.put(`${API_URL}/api/rooms/${roomId}/release`, { tenantId }, { headers: getAuthHeader() });
     return response.data;
   },
 
