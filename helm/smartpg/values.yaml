@@ -12,6 +12,11 @@ frontend:
     limits:
       memory: "256Mi"
       cpu: "250m"
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    cpuUtilization: 50
 
 tenantService:
   enabled: true
