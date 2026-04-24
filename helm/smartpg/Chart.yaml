@@ -14,23 +14,29 @@ dependencies:
     version: 1.0.0
     repository: "file://charts/tenant-service"
     condition: tenantService.enabled
+    alias: tenantService
   - name: payment-service
     version: 1.0.0
     repository: "file://charts/payment-service"
     condition: paymentService.enabled
+    alias: paymentService
   - name: mess-service
     version: 1.0.0
     repository: "file://charts/mess-service"
     condition: messService.enabled
+    alias: messService
   - name: complaint-service
     version: 1.0.0
     repository: "file://charts/complaint-service"
     condition: complaintService.enabled
+    alias: complaintService
   - name: notification-service
     version: 1.0.0
     repository: "file://charts/notification-service"
     condition: notificationService.enabled
+    alias: notificationService
   - name: mongodb
     version: 1.0.0
     repository: "file://charts/mongodb"
     condition: mongodb.enabled
+

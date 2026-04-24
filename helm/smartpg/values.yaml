@@ -123,3 +123,6 @@ secrets:
   jwtSecret: ""
   mongoUsername: ""
   mongoPassword: ""
+
+gateway:
+  className: kgateway
