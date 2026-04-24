@@ -11,19 +11,19 @@ import { useToast } from '../components/common/Toast';
 import { complaintService } from '../services/complaintService';
 
 const priorityStyles = {
-  urgent: 'bg-error text-on-error',
-  high: 'bg-[#fff8e1] text-[#e65100]',
-  medium: 'bg-surface-container text-on-surface',
-  low: 'bg-surface-variant text-on-surface-variant',
+  Urgent: 'bg-error text-on-error',
+  High: 'bg-[#fff8e1] text-[#e65100]',
+  Medium: 'bg-surface-container text-on-surface',
+  Low: 'bg-surface-variant text-on-surface-variant',
 };
 
 const categories = [
-  { value: 'maintenance', label: '🔧 Maintenance' },
-  { value: 'cleanliness', label: '🧹 Cleanliness' },
-  { value: 'noise', label: '🔊 Noise' },
-  { value: 'security', label: '🔒 Security' },
-  { value: 'food', label: '🍽️ Food' },
-  { value: 'other', label: '❓ Other' },
+  { value: 'Maintenance', label: '🔧 Maintenance' },
+  { value: 'Cleanliness', label: '🧹 Cleanliness' },
+  { value: 'Noise', label: '🔊 Noise' },
+  { value: 'Security', label: '🔒 Security' },
+  { value: 'Food', label: '🍽️ Food' },
+  { value: 'Other', label: '❓ Other' },
 ];
 
 const Complaints = () => {
@@ -40,7 +40,7 @@ const Complaints = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [form, setForm] = useState({ category: 'maintenance', title: '', description: '', priority: 'medium' });
+  const [form, setForm] = useState({ category: 'Maintenance', title: '', description: '', priority: 'Medium' });
   const [adminNote, setAdminNote] = useState('');
   const [statusChange, setStatusChange] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -72,7 +72,7 @@ const Complaints = () => {
         toast.success('Complaint raised successfully');
       }
       setShowCreateModal(false);
-      setForm({ category: 'maintenance', title: '', description: '', priority: 'medium' });
+      setForm({ category: 'Maintenance', title: '', description: '', priority: 'Medium' });
       setSelectedComplaint(null);
       fetchData();
     } catch (err) { 
@@ -106,21 +106,20 @@ const Complaints = () => {
   };
 
   const filtered = complaints.filter(c => {
-    if (search) {
-      const q = search.toLowerCase();
-      if (!(c.title?.toLowerCase().includes(q) || c.tenantName?.toLowerCase().includes(q))) return false;
-    }
+    if (search && !c.title?.toLowerCase().includes(search.toLowerCase()) && !c.tenantName?.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterCategory !== 'all' && c.category !== filterCategory) return false;
     if (filterPriority !== 'all' && c.priority !== filterPriority) return false;
     if (filterStatus !== 'all' && c.status !== filterStatus) return false;
     return true;
   });
 
-  const totalPages = Math.ceil(filtered.length / perPage);
+  const totalPages = Math.ceil(filtered.length / perPage) || 1;
   const paged = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
-  const openCount = complaints.filter(c => c.status === 'open').length;
-  const inProgressCount = complaints.filter(c => c.status === 'in-progress').length;
-  const resolvedCount = complaints.filter(c => c.status === 'resolved').length;
+
+  const openCount = complaints.filter(c => c.status === 'Open').length;
+  const inProgressCount = complaints.filter(c => c.status === 'In Progress').length;
+  const resolvedCount = complaints.filter(c => c.status === 'Resolved').length;
+
   const getInitials = (name) => name ? name.charAt(0).toUpperCase() : 'T';
 
   if (loading) {
@@ -138,61 +137,64 @@ const Complaints = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-h1 font-h1 text-on-background">My Complaints</h2>
-            <p className="text-body-md text-on-surface-variant mt-1">Track your raised issues</p>
+            <p className="text-body-md text-on-surface-variant mt-1">Track your issues and requests</p>
           </div>
-          <button onClick={() => setShowCreateModal(true)} className="bg-secondary-container hover:bg-secondary text-on-primary font-label-md px-4 py-2.5 rounded shadow-sm transition-colors flex items-center gap-2">
+          <button onClick={() => { setForm({ category: 'Maintenance', title: '', description: '', priority: 'Medium' }); setShowCreateModal(true); }} className="bg-secondary-container hover:bg-secondary text-on-primary font-label-md px-4 py-2.5 rounded shadow-sm flex items-center gap-2">
             <span className="material-symbols-outlined text-[20px]">add</span>
             Raise Complaint
           </button>
         </div>
 
-        {/* Complaint Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map((c, i) => (
-            <div key={i} className="bg-surface-container-lowest rounded-lg p-5 border border-outline-variant shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)]">
-              <div className="flex justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge status={c.category || 'other'} label={c.category} />
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-label-sm capitalize ${priorityStyles[c.priority] || priorityStyles.medium}`}>{c.priority}</span>
-                </div>
-                <Badge status={c.status} />
-              </div>
-
-              <p className="font-label-md text-on-background mt-3">{c.title}</p>
-              <p className="text-body-md text-on-surface-variant line-clamp-2 mt-1">{c.description}</p>
-
-              {c.adminNote && (
-                <div className="mt-3 p-3 bg-surface-container rounded border-l-4 border-primary-container">
-                  <p className="text-body-md text-on-surface-variant"><span className="font-label-md">Admin:</span> {c.adminNote}</p>
-                </div>
-              )}
-
-              <div className="flex justify-between items-center mt-4 border-t border-outline-variant pt-3">
-                <span className="text-[12px] text-on-surface-variant">{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ''}</span>
-                {c.status === 'open' && (
-                  <div className="flex gap-1">
-                    <button onClick={() => { setSelectedComplaint(c); setForm({ category: c.category, title: c.title, description: c.description, priority: c.priority }); setShowCreateModal(true); }} className="p-1.5 rounded text-on-surface-variant hover:text-primary">
-                      <span className="material-symbols-outlined text-[18px]">edit</span>
-                    </button>
-                    <button onClick={() => { setSelectedComplaint(c); setShowDeleteModal(true); }} className="p-1.5 rounded text-on-surface-variant hover:text-error">
-                      <span className="material-symbols-outlined text-[18px]">delete</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-card-gap mb-8">
+          <StatCard icon="error" iconBg="bg-error-container" value={openCount} label="Open" />
+          <StatCard icon="pending" iconBg="bg-[#fff8e1]" value={inProgressCount} label="In Progress" />
+          <StatCard icon="check_circle" iconBg="bg-primary-container" value={resolvedCount} label="Resolved" />
         </div>
 
-        {filtered.length === 0 && (
-          <div className="text-center py-12 text-on-surface-variant">
-            <span className="material-symbols-outlined text-[48px] mb-2">sentiment_satisfied</span>
-            <p>No complaints raised yet</p>
-          </div>
-        )}
+        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant shadow-sm overflow-hidden">
+          {complaints.length === 0 ? (
+            <div className="text-center py-12 text-on-surface-variant">
+              <span className="material-symbols-outlined text-[48px] mb-2">done_all</span>
+              <p>No complaints raised yet.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-outline-variant">
+              {complaints.map(c => (
+                <div key={c._id} className="p-6 hover:bg-surface-container-lowest transition-colors flex justify-between items-start gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge status={c.category} label={c.category} />
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-label-sm capitalize ${priorityStyles[c.priority] || priorityStyles.Medium}`}>{c.priority}</span>
+                      <Badge status={c.status} />
+                    </div>
+                    <h3 className="font-h3 text-on-background mb-1">{c.title}</h3>
+                    <p className="text-body-md text-on-surface-variant">{c.description}</p>
+                    {c.adminNote && (
+                      <div className="mt-3 p-3 bg-surface-container-low rounded-lg border-l-4 border-secondary-container">
+                        <p className="font-label-sm text-on-surface-variant mb-1">Admin Response:</p>
+                        <p className="text-body-md text-on-surface">{c.adminNote}</p>
+                      </div>
+                    )}
+                    <p className="text-[12px] text-on-surface-variant mt-3">{new Date(c.createdAt).toLocaleString()}</p>
+                  </div>
+                  {c.status === 'Open' && (
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => { setSelectedComplaint(c); setForm({ category: c.category, title: c.title, description: c.description, priority: c.priority }); setShowCreateModal(true); }} className="p-1.5 rounded text-on-surface-variant hover:text-primary">
+                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                      </button>
+                      <button onClick={() => { setSelectedComplaint(c); setShowDeleteModal(true); }} className="p-1.5 rounded text-on-surface-variant hover:text-error">
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Raise Complaint Modal */}
-        <Modal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); setSelectedComplaint(null); setForm({ category: 'maintenance', title: '', description: '', priority: 'medium' }); }} title={selectedComplaint ? "Edit Complaint" : "Raise New Complaint"}
+        <Modal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); setSelectedComplaint(null); setForm({ category: 'Maintenance', title: '', description: '', priority: 'Medium' }); }} title={selectedComplaint ? "Edit Complaint" : "Raise New Complaint"}
           footer={
             <>
               <button onClick={() => { setShowCreateModal(false); setSelectedComplaint(null); }} className="px-4 py-2 border border-outline-variant rounded text-on-surface font-label-md hover:bg-surface-container-low">Cancel</button>
@@ -218,7 +220,7 @@ const Complaints = () => {
             <div>
               <label className="font-label-md text-on-surface mb-2 block">Priority</label>
               <div className="grid grid-cols-3 gap-3">
-                {['low', 'medium', 'high'].map(p => (
+                {['Low', 'Medium', 'High'].map(p => (
                   <button key={p} onClick={() => setForm({...form, priority: p})}
                     className={`border rounded-lg p-3 cursor-pointer text-center font-label-md capitalize transition-colors ${
                       form.priority === p ? 'border-secondary-container bg-[#fff3e0] text-secondary-container' : 'border-outline-variant text-on-surface hover:bg-surface-container-low'
@@ -260,8 +262,8 @@ const Complaints = () => {
         placeholder="Search by tenant or title..."
         filters={[
           { type: 'select', value: filterCategory, onChange: setFilterCategory, options: [{ label: 'All Categories', value: 'all' }, ...categories.map(c => ({ label: c.label, value: c.value }))] },
-          { type: 'select', value: filterPriority, onChange: setFilterPriority, options: [{ label: 'All Priorities', value: 'all' }, { label: 'Low', value: 'low' }, { label: 'Medium', value: 'medium' }, { label: 'High', value: 'high' }, { label: 'Urgent', value: 'urgent' }] },
-          { type: 'select', value: filterStatus, onChange: setFilterStatus, options: [{ label: 'All Status', value: 'all' }, { label: 'Open', value: 'open' }, { label: 'In Progress', value: 'in-progress' }, { label: 'Resolved', value: 'resolved' }, { label: 'Closed', value: 'closed' }] },
+          { type: 'select', value: filterPriority, onChange: setFilterPriority, options: [{ label: 'All Priorities', value: 'all' }, { label: 'Low', value: 'Low' }, { label: 'Medium', value: 'Medium' }, { label: 'High', value: 'High' }, { label: 'Urgent', value: 'Urgent' }] },
+          { type: 'select', value: filterStatus, onChange: setFilterStatus, options: [{ label: 'All Status', value: 'all' }, { label: 'Open', value: 'Open' }, { label: 'In Progress', value: 'In Progress' }, { label: 'Resolved', value: 'Resolved' }, { label: 'Closed', value: 'Closed' }] },
         ]}
       />
 
@@ -277,10 +279,10 @@ const Complaints = () => {
             </div>
           )},
           { header: 'Room', render: (row) => <span>{row.roomNumber || 'N/A'}</span> },
-          { header: 'Category', render: (row) => <Badge status={row.category || 'other'} label={row.category} /> },
+          { header: 'Category', render: (row) => <Badge status={row.category || 'Other'} label={row.category} /> },
           { header: 'Title', render: (row) => <span className="font-label-md">{row.title}</span> },
           { header: 'Priority', render: (row) => (
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-label-sm capitalize ${priorityStyles[row.priority] || priorityStyles.medium}`}>{row.priority}</span>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-label-sm capitalize ${priorityStyles[row.priority] || priorityStyles.Medium}`}>{row.priority}</span>
           )},
           { header: 'Status', render: (row) => <Badge status={row.status} /> },
           { header: 'Date', render: (row) => <span className="text-on-surface-variant">{row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '-'}</span> },
@@ -291,13 +293,13 @@ const Complaints = () => {
             <button onClick={() => { setSelectedComplaint(row); setStatusChange(row.status); setAdminNote(row.adminNote || ''); setShowViewModal(true); }} className="p-1.5 rounded text-on-surface-variant hover:text-primary">
               <span className="material-symbols-outlined text-[20px]">visibility</span>
             </button>
-            {row.status === 'open' && (
-              <button onClick={() => handleStatusChange(row._id, 'in-progress')} className="p-1.5 rounded text-on-surface-variant hover:text-[#f57f17]" title="Move to In Progress">
+            {row.status === 'Open' && (
+              <button onClick={() => handleStatusChange(row._id, 'In Progress')} className="p-1.5 rounded text-on-surface-variant hover:text-[#f57f17]" title="Move to In Progress">
                 <span className="material-symbols-outlined text-[20px]">pending</span>
               </button>
             )}
-            {row.status === 'in-progress' && (
-              <button onClick={() => handleStatusChange(row._id, 'resolved')} className="p-1.5 rounded text-on-surface-variant hover:text-green-600" title="Mark Resolved">
+            {row.status === 'In Progress' && (
+              <button onClick={() => handleStatusChange(row._id, 'Resolved')} className="p-1.5 rounded text-on-surface-variant hover:text-green-600" title="Mark Resolved">
                 <span className="material-symbols-outlined text-[20px]">check_circle</span>
               </button>
             )}
@@ -327,7 +329,7 @@ const Complaints = () => {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Badge status={selectedComplaint.category} label={selectedComplaint.category} />
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-label-sm capitalize ${priorityStyles[selectedComplaint.priority]}`}>{selectedComplaint.priority}</span>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-label-sm capitalize ${priorityStyles[selectedComplaint.priority] || priorityStyles.Medium}`}>{selectedComplaint.priority}</span>
               <Badge status={selectedComplaint.status} />
             </div>
             <h3 className="font-h3 text-on-background">{selectedComplaint.title}</h3>
@@ -336,10 +338,10 @@ const Complaints = () => {
               <div>
                 <label className="font-label-md text-on-surface mb-1 block">Change Status</label>
                 <select value={statusChange} onChange={(e) => setStatusChange(e.target.value)} className="w-full px-3 py-2 border border-outline-variant rounded-md font-body-md text-on-surface bg-surface">
-                  <option value="open">Open</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="closed">Closed</option>
+                  <option value="Open">Open</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Resolved">Resolved</option>
+                  <option value="Closed">Closed</option>
                 </select>
               </div>
               <div>

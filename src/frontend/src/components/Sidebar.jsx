@@ -64,12 +64,12 @@ const Sidebar = () => {
       {/* CTA Button */}
       <div className="px-6 mb-8">
         {isAdmin ? (
-          <button className="w-full bg-secondary-container hover:bg-secondary text-on-primary font-label-md py-2.5 rounded flex items-center justify-center gap-2 transition-colors">
+          <button onClick={() => navigate('/tenants')} className="w-full bg-secondary-container hover:bg-secondary text-on-primary font-label-md py-2.5 rounded flex items-center justify-center gap-2 transition-colors">
             <span className="material-symbols-outlined text-[20px]">add</span>
             Add New Booking
           </button>
         ) : (
-          <button className="w-full bg-secondary-container hover:bg-secondary text-on-primary font-label-md py-2.5 rounded flex items-center justify-center gap-2 transition-colors">
+          <button onClick={() => navigate('/complaints')} className="w-full bg-secondary-container hover:bg-secondary text-on-primary font-label-md py-2.5 rounded flex items-center justify-center gap-2 transition-colors">
             <span className="material-symbols-outlined text-[20px]">report_problem</span>
             Raise Complaint
           </button>
