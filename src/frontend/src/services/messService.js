@@ -26,5 +26,30 @@ export const messService = {
   optOut: async (data) => {
     const response = await axios.post(`${API_URL}/api/orders/opt-out`, data, { headers: getAuthHeader() });
     return response.data;
+  },
+
+  updateMenu: async (data) => {
+    const response = await axios.post(`${API_URL}/api/menu`, data, { headers: getAuthHeader() });
+    return response.data;
+  },
+
+  getStats: async () => {
+    const response = await axios.get(`${API_URL}/api/orders/today/stats`, { headers: getAuthHeader() });
+    return response.data;
+  },
+
+  getMessRate: async () => {
+    const response = await axios.get(`${API_URL}/api/mess/rate`, { headers: getAuthHeader() });
+    return response.data;
+  },
+
+  updateMessRate: async (rate) => {
+    const response = await axios.put(`${API_URL}/api/mess/rate`, { ratePerMeal: rate }, { headers: getAuthHeader() });
+    return response.data;
+  },
+
+  getBill: async (tenantId, month, year) => {
+    const response = await axios.get(`${API_URL}/api/mess/bill/${tenantId}?month=${month}&year=${year}`, { headers: getAuthHeader() });
+    return response.data;
   }
 };
