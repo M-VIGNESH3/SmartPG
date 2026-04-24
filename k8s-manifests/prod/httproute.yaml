@@ -12,6 +12,7 @@ spec:
       namespace: smartpg-prod
   hostnames:
     - "smartpg.com"
+    - "13.127.1.108"
   rules:
     # Tenant Service
     - matches:
