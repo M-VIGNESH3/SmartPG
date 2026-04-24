@@ -67,7 +67,7 @@ const Rooms = () => {
   }
 
   const getTenantForRoom = (room) => {
-    if (!room.occupants || room.occupants.length === 0) return null;
+    if (!room || !room.occupants || room.occupants.length === 0) return null;
     // occupants might be populated objects or just IDs
     if (typeof room.occupants[0] === 'object' && room.occupants[0].name) {
       return room.occupants[0];

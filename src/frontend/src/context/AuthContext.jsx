@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
           setUser(JSON.parse(storedUser));
           setToken(storedToken);
           // Set old user item for backward compatibility with existing service code temporarily
-          localStorage.setItem('user', storedUser); 
+          localStorage.setItem('user', JSON.stringify({ ...JSON.parse(storedUser), token: storedToken })); 
         }
       } catch (e) {
         logout();
