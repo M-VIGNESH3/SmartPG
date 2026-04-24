@@ -23,8 +23,23 @@ export const paymentService = {
     return response.data;
   },
 
+  getByMonth: async (month, year) => {
+    const response = await axios.get(`${API_URL}/api/payments/month/${month}/${year}`, { headers: getAuthHeader() });
+    return response.data;
+  },
+
+  createPayment: async (data) => {
+    const response = await axios.post(`${API_URL}/api/payments`, data, { headers: getAuthHeader() });
+    return response.data;
+  },
+
   updateStatus: async (id, status) => {
     const response = await axios.put(`${API_URL}/api/payments/${id}/status`, { status }, { headers: getAuthHeader() });
     return response.data;
-  }
+  },
+
+  deletePayment: async (id) => {
+    const response = await axios.delete(`${API_URL}/api/payments/${id}`, { headers: getAuthHeader() });
+    return response.data;
+  },
 };

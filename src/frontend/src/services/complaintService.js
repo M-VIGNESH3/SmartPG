@@ -23,8 +23,18 @@ export const complaintService = {
     return response.data;
   },
 
-  updateStatus: async (id, status) => {
-    const response = await axios.put(`${API_URL}/api/complaints/${id}/status`, { status }, { headers: getAuthHeader() });
+  updateComplaint: async (id, data) => {
+    const response = await axios.put(`${API_URL}/api/complaints/${id}`, data, { headers: getAuthHeader() });
     return response.data;
-  }
+  },
+
+  updateStatus: async (id, status, adminNote) => {
+    const response = await axios.put(`${API_URL}/api/complaints/${id}/status`, { status, adminNote }, { headers: getAuthHeader() });
+    return response.data;
+  },
+
+  deleteComplaint: async (id) => {
+    const response = await axios.delete(`${API_URL}/api/complaints/${id}`, { headers: getAuthHeader() });
+    return response.data;
+  },
 };

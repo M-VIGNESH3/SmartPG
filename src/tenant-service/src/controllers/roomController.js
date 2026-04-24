@@ -74,6 +74,7 @@ exports.allocateRoom = async (req, res) => {
     await room.save();
 
     tenant.roomId = roomId;
+    tenant.roomNumber = room.roomNumber;
     await tenant.save();
 
     res.json({ message: 'Room allocated successfully', room });
@@ -95,6 +96,7 @@ exports.releaseRoom = async (req, res) => {
     const tenant = await Tenant.findById(tenantId);
     if (tenant) {
       tenant.roomId = null;
+      tenant.roomNumber = null;
       await tenant.save();
     }
 

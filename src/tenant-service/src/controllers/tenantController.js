@@ -14,7 +14,7 @@ const generateToken = (tenant) => {
       tempPassword: tenant.tempPassword,
     },
     process.env.JWT_SECRET,
-    { expiresIn: '30d' }
+    { expiresIn: '24h' }
   );
 };
 
@@ -52,8 +52,10 @@ exports.loginTenant = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    // STATUS CHECKS
-    if (tenant.status === 'pending') {
+    // STATUS CHECKS (treat null/undefined as 'active' for backward compat)
+    const tenantStatus = tenant.status || 'active';
+
+    if (tenantStatus === 'pending') {
       return res.status(403).json({
         message: 'Your account is pending admin approval. Please wait for approval before logging in.',
         status: 'pending',
@@ -61,7 +63,7 @@ exports.loginTenant = async (req, res) => {
       });
     }
 
-    if (tenant.status === 'rejected') {
+    if (tenantStatus === 'rejected') {
       return res.status(403).json({
         message: 'Your registration has been rejected. Please contact the admin for more information.',
         status: 'rejected',
@@ -70,7 +72,7 @@ exports.loginTenant = async (req, res) => {
       });
     }
 
-    if (tenant.status === 'inactive') {
+    if (tenantStatus === 'inactive') {
       return res.status(403).json({
         message: 'Your account has been deactivated. Please contact admin.',
         status: 'inactive',
@@ -278,7 +280,7 @@ exports.getTenants = async (req, res) => {
     if (status) {
       filter.status = status;
     } else {
-      filter.status = { $in: ['active', 'inactive'] };
+      filter.status = { $in: ['active', 'inactive', null], $nin: ['pending', 'rejected'] };
     }
 
     if (search) {
