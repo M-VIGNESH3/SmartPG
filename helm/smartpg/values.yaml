@@ -126,3 +126,8 @@ secrets:
 
 gateway:
   className: kgateway
+
+sealedSecrets:
+  enabled: false
+  # encryptedData will hold the spec.encryptedData block from kubeseal
+  encryptedData: {}
