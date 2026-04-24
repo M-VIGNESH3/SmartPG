@@ -6,9 +6,11 @@ const menuSchema = new mongoose.Schema({
     required: true, 
     enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
   },
-  breakfast: { type: String, required: true },
-  lunch: { type: String, required: true },
-  dinner: { type: String, required: true },
+  breakfast: [{ type: String }],
+  lunch: [{ type: String }],
+  dinner: [{ type: String }],
+  isVeg: { type: Boolean, default: true },
+  note: { type: String },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 

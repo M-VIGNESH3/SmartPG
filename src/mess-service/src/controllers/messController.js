@@ -24,16 +24,17 @@ exports.getTodayMenu = async (req, res) => {
 
 exports.createMenu = async (req, res) => {
   try {
-    const { dayOfWeek, breakfast, lunch, dinner, isVeg } = req.body;
+    const { dayOfWeek, breakfast, lunch, dinner, isVeg, note } = req.body;
     let menu = await Menu.findOne({ dayOfWeek });
     if (menu) {
       menu.breakfast = breakfast;
       menu.lunch = lunch;
       menu.dinner = dinner;
       menu.isVeg = isVeg !== undefined ? isVeg : true;
+      menu.note = note;
       await menu.save();
     } else {
-      menu = await Menu.create({ dayOfWeek, breakfast, lunch, dinner, isVeg });
+      menu = await Menu.create({ dayOfWeek, breakfast, lunch, dinner, isVeg, note });
     }
     res.status(201).json(menu);
   } catch (error) {
@@ -43,8 +44,8 @@ exports.createMenu = async (req, res) => {
 
 exports.updateMenu = async (req, res) => {
   try {
-    const { breakfast, lunch, dinner, isVeg } = req.body;
-    const menu = await Menu.findByIdAndUpdate(req.params.id, { breakfast, lunch, dinner, isVeg }, { new: true });
+    const { breakfast, lunch, dinner, isVeg, note } = req.body;
+    const menu = await Menu.findByIdAndUpdate(req.params.id, { breakfast, lunch, dinner, isVeg, note }, { new: true });
     if (!menu) return res.status(404).json({ message: 'Menu not found' });
     res.json(menu);
   } catch (error) {
