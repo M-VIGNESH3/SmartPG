@@ -17,7 +17,7 @@ spec:
         runAsUser: 1001
       containers:
         - name: complaint-service
-          image: ghcr.io/youruser/smartpg-complaint-service:latest
+          image: vignesh8386/smartpg-complaint-service:v1.0.0
           ports:
             - containerPort: 4004
           envFrom:

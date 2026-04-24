@@ -17,7 +17,7 @@ spec:
         runAsUser: 1001
       containers:
         - name: notification-service
-          image: ghcr.io/youruser/smartpg-notification-service:latest
+          image: vignesh8386/smartpg-notification-service:v1.0.0
           ports:
             - containerPort: 4005
           envFrom:

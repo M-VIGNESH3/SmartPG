@@ -17,7 +17,7 @@ spec:
         runAsUser: 1001
       containers:
         - name: frontend
-          image: ghcr.io/youruser/smartpg-frontend:latest
+          image: vignesh8386/smartpg-frontend:v1.0.0
           ports:
             - containerPort: 80
           envFrom:

@@ -17,7 +17,7 @@ spec:
         runAsUser: 1001
       containers:
         - name: payment-service
-          image: ghcr.io/youruser/smartpg-payment-service:latest
+          image: vignesh8386/smartpg-payment-service:v1.0.0
           ports:
             - containerPort: 4002
           envFrom:

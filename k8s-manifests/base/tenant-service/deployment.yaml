@@ -17,7 +17,7 @@ spec:
         runAsUser: 1001
       containers:
         - name: tenant-service
-          image: ghcr.io/youruser/smartpg-tenant-service:latest
+          image: vignesh8386/smartpg-tenant-service:v1.0.0
           ports:
             - containerPort: 4001
           envFrom:

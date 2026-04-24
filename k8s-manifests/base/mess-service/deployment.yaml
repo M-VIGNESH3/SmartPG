@@ -17,7 +17,7 @@ spec:
         runAsUser: 1001
       containers:
         - name: mess-service
-          image: ghcr.io/youruser/smartpg-mess-service:latest
+          image: vignesh8386/smartpg-mess-service:v1.0.0
           ports:
             - containerPort: 4003
           envFrom:
