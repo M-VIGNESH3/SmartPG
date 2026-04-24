@@ -12,9 +12,7 @@ spec:
       labels:
         app: frontend
     spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1001
+
       containers:
         - name: frontend
           image: vignesh8386/smartpg-frontend:v1.0.0
