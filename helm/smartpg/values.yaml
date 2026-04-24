@@ -1,4 +1,5 @@
 frontend:
+  fullnameOverride: "frontend"
   enabled: true
   image:
     repository: vignesh8386/smartpg-frontend
@@ -19,6 +20,7 @@ frontend:
     cpuUtilization: 50
 
 tenantService:
+  fullnameOverride: "tenant-service"
   enabled: true
   image:
     repository: vignesh8386/smartpg-tenant-service
@@ -34,6 +36,7 @@ tenantService:
       cpu: "250m"
 
 paymentService:
+  fullnameOverride: "payment-service"
   enabled: true
   image:
     repository: vignesh8386/smartpg-payment-service
@@ -49,6 +52,7 @@ paymentService:
       cpu: "250m"
 
 messService:
+  fullnameOverride: "mess-service"
   enabled: true
   image:
     repository: vignesh8386/smartpg-mess-service
@@ -64,6 +68,7 @@ messService:
       cpu: "250m"
 
 complaintService:
+  fullnameOverride: "complaint-service"
   enabled: true
   image:
     repository: vignesh8386/smartpg-complaint-service
@@ -79,6 +84,7 @@ complaintService:
       cpu: "250m"
 
 notificationService:
+  fullnameOverride: "notification-service"
   enabled: true
   image:
     repository: vignesh8386/smartpg-notification-service
@@ -108,7 +114,7 @@ mongodb:
       memory: "512Mi"
       cpu: "500m"
   persistence:
-    storageClass: "nfs-client"
+    storageClass: "csi-standard"
     dataSize: "5Gi"
     configSize: "1Gi"
 
