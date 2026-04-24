@@ -41,10 +41,12 @@ const Notifications = () => {
   const fetchData = async () => {
     try {
       if (isAdmin) {
-        const t = await tenantService.getTenants().catch(() => []);
+        const [t, n] = await Promise.all([
+          tenantService.getTenants().catch(() => []),
+          notificationService.getAllNotifications().catch(() => [])
+        ]);
         setTenants(Array.isArray(t) ? t : []);
-        // Admin sees all — use a mock or fetch all notifications
-        setNotifications([]);
+        setNotifications(Array.isArray(n) ? n : []);
       } else {
         const data = await notificationService.getNotifications(user?.id).catch(() => []);
         setNotifications(Array.isArray(data) ? data : []);
@@ -109,7 +111,17 @@ const Notifications = () => {
           ]}
           data={notifications}
           actions={(row) => (
-            <button className="p-1.5 rounded text-on-surface-variant hover:text-error">
+            <button 
+              onClick={async () => {
+                try {
+                  await notificationService.deleteNotification(row._id);
+                  fetchData();
+                } catch (err) {
+                  console.error('Failed to delete notification:', err);
+                }
+              }} 
+              className="p-1.5 rounded text-on-surface-variant hover:text-error"
+            >
               <span className="material-symbols-outlined text-[20px]">delete</span>
             </button>
           )}
@@ -127,7 +139,26 @@ const Notifications = () => {
           footer={
             <>
               <button onClick={() => setShowSendModal(false)} className="px-4 py-2 border border-outline-variant rounded text-on-surface font-label-md hover:bg-surface-container-low">Cancel</button>
-              <button onClick={() => setShowSendModal(false)} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md">Send</button>
+              <button 
+                onClick={async () => {
+                  try {
+                    await notificationService.sendNotification({
+                      title: form.title,
+                      message: form.message,
+                      type: form.type,
+                      tenantId: form.target === 'specific' ? form.tenantId : null
+                    });
+                    setShowSendModal(false);
+                    setForm({ title: '', message: '', target: 'all', tenantId: '', type: 'announcement' });
+                    fetchData();
+                  } catch (err) {
+                    console.error('Failed to send notification:', err);
+                  }
+                }} 
+                className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md"
+              >
+                Send
+              </button>
             </>
           }
         >

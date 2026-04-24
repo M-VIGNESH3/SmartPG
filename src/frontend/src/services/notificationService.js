@@ -8,6 +8,11 @@ const getAuthHeader = () => {
 };
 
 export const notificationService = {
+  getAllNotifications: async () => {
+    const response = await axios.get(`${API_URL}/api/notifications/all`, { headers: getAuthHeader() });
+    return response.data;
+  },
+
   getNotifications: async (tenantId) => {
     if (!tenantId || tenantId === 'undefined') return [];
     const response = await axios.get(`${API_URL}/api/notifications/${tenantId}`, { headers: getAuthHeader() });

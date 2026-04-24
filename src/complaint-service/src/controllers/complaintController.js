@@ -124,8 +124,12 @@ exports.updateComplaintStatus = async (req, res) => {
         title: 'Complaint Status Updated',
         message: `Your complaint "${complaint.title}" is now ${status}.`,
         type: 'complaint'
+      }, {
+        headers: { Authorization: req.headers.authorization }
       });
-    } catch (err) {}
+    } catch (err) {
+      console.warn('Failed to send notification:', err.message);
+    }
 
     res.json(updated);
   } catch (error) {

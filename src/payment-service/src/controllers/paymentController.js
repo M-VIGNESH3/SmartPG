@@ -14,8 +14,12 @@ exports.createPayment = async (req, res) => {
         title: 'New Bill Generated',
         message: `A new bill of ₹${amount} for ${month} ${year} has been generated.`,
         type: 'payment'
+      }, {
+        headers: { Authorization: req.headers.authorization }
       });
-    } catch (err) {}
+    } catch (err) {
+      console.warn('Failed to send notification:', err.message);
+    }
 
     res.status(201).json(payment);
   } catch (error) {
@@ -91,8 +95,12 @@ exports.updatePaymentStatus = async (req, res) => {
         title: 'Payment Status Updated',
         message: `Your payment for ${payment.month} ${payment.year} is now ${status}.`,
         type: 'payment'
+      }, {
+        headers: { Authorization: req.headers.authorization }
       });
-    } catch (err) {}
+    } catch (err) {
+      console.warn('Failed to send notification:', err.message);
+    }
 
     res.json(updatedPayment);
   } catch (error) {
