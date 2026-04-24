@@ -1,0 +1,12 @@
+image:
+  repository: vignesh8386/smartpg-complaint-service
+  tag: v1.0.0
+service:
+  port: 4004
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "250m"

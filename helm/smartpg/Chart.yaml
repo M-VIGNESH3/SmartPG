@@ -1,0 +1,36 @@
+apiVersion: v2
+name: smartpg
+description: A Helm chart for Kubernetes
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: frontend
+    version: 1.0.0
+    repository: "file://charts/frontend"
+    condition: frontend.enabled
+  - name: tenant-service
+    version: 1.0.0
+    repository: "file://charts/tenant-service"
+    condition: tenantService.enabled
+  - name: payment-service
+    version: 1.0.0
+    repository: "file://charts/payment-service"
+    condition: paymentService.enabled
+  - name: mess-service
+    version: 1.0.0
+    repository: "file://charts/mess-service"
+    condition: messService.enabled
+  - name: complaint-service
+    version: 1.0.0
+    repository: "file://charts/complaint-service"
+    condition: complaintService.enabled
+  - name: notification-service
+    version: 1.0.0
+    repository: "file://charts/notification-service"
+    condition: notificationService.enabled
+  - name: mongodb
+    version: 1.0.0
+    repository: "file://charts/mongodb"
+    condition: mongodb.enabled

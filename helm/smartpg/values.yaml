@@ -1,0 +1,104 @@
+frontend:
+  enabled: true
+  image:
+    repository: vignesh8386/smartpg-frontend
+    tag: v1.0.0
+  service:
+    port: 80
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+
+tenantService:
+  enabled: true
+  image:
+    repository: vignesh8386/smartpg-tenant-service
+    tag: v1.0.0
+  service:
+    port: 4001
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+
+paymentService:
+  enabled: true
+  image:
+    repository: vignesh8386/smartpg-payment-service
+    tag: v1.0.0
+  service:
+    port: 4002
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+
+messService:
+  enabled: true
+  image:
+    repository: vignesh8386/smartpg-mess-service
+    tag: v1.0.0
+  service:
+    port: 4003
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+
+complaintService:
+  enabled: true
+  image:
+    repository: vignesh8386/smartpg-complaint-service
+    tag: v1.0.0
+  service:
+    port: 4004
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+
+notificationService:
+  enabled: true
+  image:
+    repository: vignesh8386/smartpg-notification-service
+    tag: v1.0.0
+  service:
+    port: 4005
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+
+mongodb:
+  enabled: true
+  image:
+    repository: mongo
+    tag: "7"
+  service:
+    port: 27017
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"

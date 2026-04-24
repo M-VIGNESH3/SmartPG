@@ -1,0 +1,25 @@
+namespace: smartpg-dev
+
+frontend:
+  image:
+    tag: v1.0.0-dev
+
+tenantService:
+  image:
+    tag: v1.0.0-dev
+
+paymentService:
+  image:
+    tag: v1.0.0-dev
+
+messService:
+  image:
+    tag: v1.0.0-dev
+
+complaintService:
+  image:
+    tag: v1.0.0-dev
+
+notificationService:
+  image:
+    tag: v1.0.0-dev
