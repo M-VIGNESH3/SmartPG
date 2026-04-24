@@ -107,6 +107,10 @@ mongodb:
     limits:
       memory: "512Mi"
       cpu: "500m"
+  persistence:
+    storageClass: "nfs-client"
+    dataSize: "5Gi"
+    configSize: "1Gi"
 
 secrets:
   mongoUri: ""

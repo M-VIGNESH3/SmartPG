@@ -71,15 +71,19 @@ spec:
         name: mongodb-storage
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: csi-standard
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass }}
+        {{- end }}
         resources:
           requests:
-            storage: 5Gi
+            storage: {{ .Values.persistence.dataSize | default "5Gi" }}
     - metadata:
         name: mongodb-config
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: csi-standard
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass }}
+        {{- end }}
         resources:
           requests:
-            storage: 1Gi
+            storage: {{ .Values.persistence.configSize | default "1Gi" }}
