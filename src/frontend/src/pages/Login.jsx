@@ -35,12 +35,6 @@ const Login = () => {
     }
   };
 
-  const fillDemo = (demoEmail, demoPass) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setError(null);
-  };
-
   // Determine error style based on type
   const getErrorStyle = () => {
     if (!error) return null;
@@ -172,29 +166,6 @@ const Login = () => {
             </button>
           </form>
 
-          {/* Demo credentials */}
-          <div className="mt-8 p-5 bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="material-symbols-outlined text-[18px] text-secondary-container">key</span>
-              <span className="font-label-md text-on-surface">Demo Credentials</span>
-            </div>
-
-            <div className="py-2 border-b border-outline-variant flex justify-between items-center cursor-pointer hover:bg-surface-container rounded px-3 -mx-3 transition-colors" onClick={() => fillDemo('admin@smartpg.com', 'Admin@123')}>
-              <span className="bg-primary-container text-on-primary-container px-2 py-1 rounded text-[12px] font-label-sm font-semibold">Admin</span>
-              <div className="text-right">
-                <p className="font-label-sm text-on-surface">admin@smartpg.com</p>
-                <p className="text-[12px] text-on-surface-variant">Admin@123</p>
-              </div>
-            </div>
-
-            <div className="py-2 flex justify-between items-center cursor-pointer hover:bg-surface-container rounded px-3 -mx-3 transition-colors mt-2" onClick={() => fillDemo('rahul@smartpg.com', 'Tenant@123')}>
-              <span className="bg-primary-container text-on-primary-container px-2 py-1 rounded text-[12px] font-label-sm font-semibold">Tenant</span>
-              <div className="text-right">
-                <p className="font-label-sm text-on-surface">rahul@smartpg.com</p>
-                <p className="text-[12px] text-on-surface-variant">Tenant@123</p>
-              </div>
-            </div>
-          </div>
 
           {/* Register Link */}
           <p className="text-center mt-8 text-body-md text-on-surface-variant">

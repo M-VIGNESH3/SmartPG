@@ -48,8 +48,8 @@ const Dashboard = () => {
     const now = new Date();
     return p.month === now.getMonth() + 1 && p.year === now.getFullYear();
   }) || payments[0];
-  const recentPayments = payments.slice(-5).reverse();
-  const recentComplaints = complaints.slice(-4).reverse();
+  const recentPayments = payments.slice(0, 5);
+  const recentComplaints = complaints.slice(0, 4);
 
   if (loading) {
     return (

@@ -110,10 +110,7 @@ const Sidebar = () => {
 
       {/* Footer links */}
       <div className="mt-auto space-y-1 font-sans text-[13px] font-semibold uppercase tracking-wider">
-        <button className="w-full flex items-center gap-3 px-6 py-3 text-slate-400 hover:bg-slate-800 hover:text-white transition-all duration-200 cursor-pointer text-left">
-          <span className="material-symbols-outlined">help</span>
-          Help Center
-        </button>
+
         <button onClick={handleLogout} className="w-full flex items-center gap-3 px-6 py-3 text-slate-400 hover:bg-slate-800 hover:text-white transition-all duration-200 cursor-pointer text-left">
           <span className="material-symbols-outlined">logout</span>
           Logout
