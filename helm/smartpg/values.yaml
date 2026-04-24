@@ -107,3 +107,9 @@ mongodb:
     limits:
       memory: "512Mi"
       cpu: "500m"
+
+secrets:
+  mongoUri: ""
+  jwtSecret: ""
+  mongoUsername: ""
+  mongoPassword: ""
