@@ -23,7 +23,7 @@ spec:
         runAsNonRoot: true
         runAsUser: 1001
       containers:
-        - name: {{ .Chart.Name }}
+        - name: tenant-service
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           ports:
             - containerPort: {{ .Values.service.port }}
