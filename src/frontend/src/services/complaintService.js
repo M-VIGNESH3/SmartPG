@@ -29,7 +29,14 @@ export const complaintService = {
   },
 
   updateStatus: async (id, status, adminNote) => {
-    const response = await axios.put(`${API_URL}/api/complaints/${id}/status`, { status, adminNote }, { headers: getAuthHeader() });
+    // Fire status update
+    const response = await axios.put(`${API_URL}/api/complaints/${id}/status`, { status }, { headers: getAuthHeader() });
+    
+    // If adminNote is provided, also fire note update concurrently
+    if (adminNote !== undefined && adminNote !== null) {
+      await axios.put(`${API_URL}/api/complaints/${id}/note`, { adminNote }, { headers: getAuthHeader() }).catch(e => console.warn('Failed to update note', e));
+    }
+    
     return response.data;
   },
 

@@ -73,6 +73,7 @@ const Tenants = () => {
   const getInitials = (name) => name ? name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() : 'T';
 
   const handleAdd = async () => {
+    setActionLoading(true);
     try {
       await tenantService.adminCreateTenant({ ...form, role: 'tenant' });
       setShowAddModal(false);
@@ -81,6 +82,40 @@ const Tenants = () => {
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create tenant');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!selectedTenant) return;
+    setActionLoading(true);
+    try {
+      await tenantService.updateTenant(selectedTenant._id, form);
+      setShowEditModal(false);
+      setSelectedTenant(null);
+      toast.success('Tenant updated successfully');
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update tenant');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedTenant) return;
+    setActionLoading(true);
+    try {
+      await tenantService.deleteTenant(selectedTenant._id);
+      toast.success('Tenant deleted successfully');
+      setShowDeleteModal(false);
+      setSelectedTenant(null);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete tenant');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -392,7 +427,10 @@ const Tenants = () => {
         footer={
           <>
             <button onClick={() => setShowAddModal(false)} className="px-4 py-2 border border-outline-variant rounded text-on-surface font-label-md hover:bg-surface-container-low transition-colors">Cancel</button>
-            <button onClick={handleAdd} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md transition-colors">Add Tenant</button>
+            <button onClick={handleAdd} disabled={actionLoading} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md transition-colors flex items-center gap-2 disabled:opacity-50">
+              {actionLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+              Add Tenant
+            </button>
           </>
         }
       >
@@ -431,7 +469,10 @@ const Tenants = () => {
         footer={
           <>
             <button onClick={() => setShowEditModal(false)} className="px-4 py-2 border border-outline-variant rounded text-on-surface font-label-md hover:bg-surface-container-low transition-colors">Cancel</button>
-            <button onClick={() => setShowEditModal(false)} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md transition-colors">Save Changes</button>
+            <button onClick={handleEdit} disabled={actionLoading} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md transition-colors flex items-center gap-2 disabled:opacity-50">
+              {actionLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+              Save Changes
+            </button>
           </>
         }
       >
@@ -480,16 +521,8 @@ const Tenants = () => {
       <ConfirmModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
-        onConfirm={async () => {
-          try {
-            await tenantService.deleteTenant(selectedTenant._id);
-            toast.success('Tenant deleted');
-            setShowDeleteModal(false);
-            fetchData();
-          } catch (err) {
-            toast.error('Failed to delete tenant');
-          }
-        }}
+        onConfirm={handleDelete}
+        loading={actionLoading}
         title="Delete Tenant"
         message={`Are you sure you want to remove ${selectedTenant?.name}? This action cannot be undone.`}
         confirmText="Delete"

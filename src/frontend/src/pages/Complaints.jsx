@@ -7,6 +7,7 @@ import StatCard from '../components/StatCard';
 import Modal from '../components/common/Modal';
 import FormInput from '../components/common/FormInput';
 import ConfirmModal from '../components/common/ConfirmModal';
+import { useToast } from '../components/common/Toast';
 import { complaintService } from '../services/complaintService';
 
 const priorityStyles = {
@@ -27,6 +28,7 @@ const categories = [
 
 const Complaints = () => {
   const { user, isAdmin } = useAuth();
+  const toast = useToast();
   const [complaints, setComplaints] = useState([]);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
@@ -41,6 +43,7 @@ const Complaints = () => {
   const [form, setForm] = useState({ category: 'maintenance', title: '', description: '', priority: 'medium' });
   const [adminNote, setAdminNote] = useState('');
   const [statusChange, setStatusChange] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
   const perPage = 10;
 
   useEffect(() => { fetchData(); }, []);
@@ -59,19 +62,47 @@ const Complaints = () => {
   };
 
   const handleCreate = async () => {
+    setActionLoading(true);
     try {
-      await complaintService.createComplaint({ ...form, tenantId: user?.id });
+      if (selectedComplaint) {
+        await complaintService.updateComplaint(selectedComplaint._id, form);
+        toast.success('Complaint updated successfully');
+      } else {
+        await complaintService.createComplaint({ ...form, tenantId: user?.id });
+        toast.success('Complaint raised successfully');
+      }
       setShowCreateModal(false);
       setForm({ category: 'maintenance', title: '', description: '', priority: 'medium' });
+      setSelectedComplaint(null);
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      toast.error(err.response?.data?.message || 'Failed to save complaint');
+    } finally { setActionLoading(false); }
   };
 
-  const handleStatusChange = async (id, status) => {
+  const handleStatusChange = async (id, status, note = null) => {
+    setActionLoading(true);
     try {
-      await complaintService.updateStatus(id, status);
+      await complaintService.updateStatus(id, status, note);
+      toast.success('Status updated');
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      toast.error('Failed to update status');
+    } finally { setActionLoading(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedComplaint) return;
+    setActionLoading(true);
+    try {
+      await complaintService.deleteComplaint(selectedComplaint._id);
+      toast.success('Complaint deleted');
+      setShowDeleteModal(false);
+      setSelectedComplaint(null);
+      fetchData();
+    } catch (err) {
+      toast.error('Failed to delete complaint');
+    } finally { setActionLoading(false); }
   };
 
   const filtered = complaints.filter(c => {
@@ -161,11 +192,14 @@ const Complaints = () => {
         )}
 
         {/* Raise Complaint Modal */}
-        <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Raise New Complaint"
+        <Modal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); setSelectedComplaint(null); setForm({ category: 'maintenance', title: '', description: '', priority: 'medium' }); }} title={selectedComplaint ? "Edit Complaint" : "Raise New Complaint"}
           footer={
             <>
-              <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 border border-outline-variant rounded text-on-surface font-label-md hover:bg-surface-container-low">Cancel</button>
-              <button onClick={handleCreate} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md">Submit</button>
+              <button onClick={() => { setShowCreateModal(false); setSelectedComplaint(null); }} className="px-4 py-2 border border-outline-variant rounded text-on-surface font-label-md hover:bg-surface-container-low">Cancel</button>
+              <button onClick={handleCreate} disabled={actionLoading} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md flex items-center gap-2 disabled:opacity-50">
+                {actionLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+                {selectedComplaint ? "Save Changes" : "Submit"}
+              </button>
             </>
           }
         >
@@ -196,7 +230,7 @@ const Complaints = () => {
           </div>
         </Modal>
 
-        <ConfirmModal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} onConfirm={() => setShowDeleteModal(false)} title="Delete Complaint" message="Are you sure you want to delete this complaint?" />
+        <ConfirmModal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} onConfirm={handleDelete} loading={actionLoading} title="Delete Complaint" message="Are you sure you want to delete this complaint?" />
       </div>
     );
   }
@@ -282,7 +316,10 @@ const Complaints = () => {
         footer={
           <>
             <button onClick={() => setShowViewModal(false)} className="px-4 py-2 border border-outline-variant rounded text-on-surface font-label-md hover:bg-surface-container-low">Close</button>
-            <button onClick={() => { if (selectedComplaint) handleStatusChange(selectedComplaint._id, statusChange); setShowViewModal(false); }} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md">Save Changes</button>
+            <button onClick={() => { if (selectedComplaint) handleStatusChange(selectedComplaint._id, statusChange, adminNote); setShowViewModal(false); }} disabled={actionLoading} className="px-4 py-2 bg-secondary-container hover:bg-secondary text-on-primary rounded font-label-md flex items-center gap-2 disabled:opacity-50">
+              {actionLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+              Save Changes
+            </button>
           </>
         }
       >
