@@ -3,18 +3,11 @@ kind: HTTPRoute
 metadata:
   name: smartpg-routes
   namespace: smartpg-prod
-  labels:
-    project: smartpg
-    environment: production
 spec:
   parentRefs:
     - name: smartpg-gateway
       namespace: smartpg-prod
-  hostnames:
-    - "smartpg.com"
-    - "13.127.1.108"
   rules:
-    # Tenant Service
     - matches:
         - path:
             type: PathPrefix
@@ -28,9 +21,6 @@ spec:
       backendRefs:
         - name: tenant-service
           port: 4001
-          weight: 1
-
-    # Payment Service
     - matches:
         - path:
             type: PathPrefix
@@ -38,9 +28,6 @@ spec:
       backendRefs:
         - name: payment-service
           port: 4002
-          weight: 1
-
-    # Mess Service
     - matches:
         - path:
             type: PathPrefix
@@ -54,9 +41,6 @@ spec:
       backendRefs:
         - name: mess-service
           port: 4003
-          weight: 1
-
-    # Complaint Service
     - matches:
         - path:
             type: PathPrefix
@@ -64,9 +48,6 @@ spec:
       backendRefs:
         - name: complaint-service
           port: 4004
-          weight: 1
-
-    # Notification Service
     - matches:
         - path:
             type: PathPrefix
@@ -74,14 +55,10 @@ spec:
       backendRefs:
         - name: notification-service
           port: 4005
-          weight: 1
-
-    # Frontend (catch-all, must be LAST)
     - matches:
         - path:
             type: PathPrefix
             value: /
       backendRefs:
-        - name: frontend
+        - name: frontend-service
           port: 80
-          weight: 1
